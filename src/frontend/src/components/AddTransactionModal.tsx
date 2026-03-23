@@ -14,8 +14,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Camera, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Client, Transaction } from "../hooks/useStore";
 
@@ -46,6 +46,8 @@ export default function AddTransactionModal({
   const [product, setProduct] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [reminderTime, setReminderTime] = useState("");
+  const [photoBase64, setPhotoBase64] = useState<string | undefined>(undefined);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentBalance = clientId ? getClientBalance(clientId) : null;
   const amountNum = Number.parseFloat(amount) || 0;
@@ -63,6 +65,19 @@ export default function AddTransactionModal({
     setProduct("");
     setDueDate("");
     setReminderTime("");
+    setPhotoBase64(undefined);
+  };
+
+  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoBase64(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    // Reset input so same file can be reselected
+    e.target.value = "";
   };
 
   const handleSubmit = () => {
@@ -85,6 +100,7 @@ export default function AddTransactionModal({
       product: product.trim(),
       dueDate,
       reminderTime: reminderTime || undefined,
+      photoBase64: photoBase64 || undefined,
     });
     toast.success(
       type === "dette" ? "Dette enregistrée !" : "Paiement enregistré !",
@@ -286,6 +302,75 @@ export default function AddTransactionModal({
               style={{ background: "oklch(var(--navy-light))" }}
             />
           </div>
+
+          {/* Photo proof — only for dette */}
+          {type === "dette" && (
+            <div>
+              <Label className="text-muted-foreground text-sm mb-1.5 block">
+                📷 Preuve Photo
+              </Label>
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handlePhotoCapture}
+              />
+              {!photoBase64 ? (
+                <button
+                  type="button"
+                  data-ocid="add_transaction.upload_button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl py-3 font-semibold text-sm transition-all active:scale-95"
+                  style={{
+                    background: "oklch(var(--emerald) / 0.18)",
+                    color: "oklch(var(--emerald))",
+                    border: "2px solid oklch(var(--emerald) / 0.5)",
+                  }}
+                >
+                  <Camera className="w-4 h-4" />📷 Preuve Photo (recommandé)
+                </button>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={photoBase64}
+                    alt="Preuve"
+                    className="w-16 h-16 rounded-xl object-cover border-2"
+                    style={{ borderColor: "oklch(var(--emerald))" }}
+                  />
+                  <div className="flex-1">
+                    <p
+                      className="text-xs font-semibold"
+                      style={{ color: "oklch(var(--emerald))" }}
+                    >
+                      ✓ Photo ajoutée
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPhotoBase64(undefined)}
+                      className="text-xs mt-1"
+                      style={{ color: "oklch(var(--destructive))" }}
+                    >
+                      Supprimer la photo
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs px-3 py-1.5 rounded-lg"
+                    style={{
+                      background: "oklch(var(--navy-light))",
+                      color: "oklch(var(--muted-foreground))",
+                    }}
+                  >
+                    Changer
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Due date (only for dette) */}
           {type === "dette" && (

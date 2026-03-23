@@ -26,15 +26,38 @@ export default function LoginPage({ onLogin }: Props) {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <div className="w-20 h-20 rounded-2xl bg-emerald flex items-center justify-center mx-auto mb-4 shadow-glow">
-            <span className="text-3xl font-bold text-navy">CT</span>
+          <div
+            className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glow"
+            style={{ background: "oklch(var(--emerald))" }}
+          >
+            <span
+              className="text-3xl font-bold"
+              style={{ color: "oklch(var(--navy))" }}
+            >
+              SQ
+            </span>
           </div>
           <h1 className="text-4xl font-bold text-foreground tracking-tight">
-            CrédiTrack
+            SÉQUÉ-APP
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            Gestion de crédit client hors-ligne
+            Gestion de crédit — Congo-Brazzaville
           </p>
+          {/* Congo flag accent strip */}
+          <div className="flex justify-center gap-1 mt-3">
+            <span
+              className="w-6 h-1 rounded-full"
+              style={{ background: "oklch(var(--emerald))" }}
+            />
+            <span
+              className="w-6 h-1 rounded-full"
+              style={{ background: "oklch(var(--yellow))" }}
+            />
+            <span
+              className="w-6 h-1 rounded-full"
+              style={{ background: "oklch(var(--orange))" }}
+            />
+          </div>
         </motion.div>
 
         {/* Role cards */}
@@ -55,7 +78,10 @@ export default function LoginPage({ onLogin }: Props) {
             className="w-full rounded-2xl p-6 flex items-center gap-4 transition-all active:scale-95"
             style={{ background: "oklch(var(--navy-card))" }}
           >
-            <div className="w-14 h-14 rounded-xl bg-orange flex items-center justify-center flex-shrink-0">
+            <div
+              className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "oklch(var(--orange))" }}
+            >
               <Crown className="w-7 h-7 text-white" />
             </div>
             <div className="text-left">
@@ -73,8 +99,14 @@ export default function LoginPage({ onLogin }: Props) {
             className="w-full rounded-2xl p-6 flex items-center gap-4 transition-all active:scale-95"
             style={{ background: "oklch(var(--navy-light))" }}
           >
-            <div className="w-14 h-14 rounded-xl bg-emerald flex items-center justify-center flex-shrink-0">
-              <UserRound className="w-7 h-7 text-navy" />
+            <div
+              className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "oklch(var(--emerald))" }}
+            >
+              <UserRound
+                className="w-7 h-7"
+                style={{ color: "oklch(var(--navy))" }}
+              />
             </div>
             <div className="text-left">
               <div className="text-foreground font-bold text-xl">Gérant</div>

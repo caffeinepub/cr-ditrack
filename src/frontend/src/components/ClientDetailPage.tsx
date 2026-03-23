@@ -1,8 +1,18 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   AlarmClock,
   ArrowLeft,
   Calendar,
+  CreditCard,
   MapPin,
   MessageCircle,
   MessageSquare,
@@ -12,12 +22,15 @@ import {
   TrendingDown,
   TrendingUp,
   Wallet,
+  X,
+  ZoomIn,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Role } from "../hooks/useAuth";
 import type { useStore } from "../hooks/useStore";
+import { formatPhone242 } from "../utils/format";
 import AddTransactionModal from "./AddTransactionModal";
 
 type Store = ReturnType<typeof useStore>;
@@ -54,6 +67,13 @@ export default function ClientDetailPage({
 }: Props) {
   const [showAddTx, setShowAddTx] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("tout");
+  const [showPaySheet, setShowPaySheet] = useState(false);
+  const [payAmount, setPayAmount] = useState("");
+  const [payDate, setPayDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [payNote, setPayNote] = useState("");
+  const [fullscreenPhoto, setFullscreenPhoto] = useState<string | null>(null);
 
   const client = store.clients.find((c) => c.id === clientId);
   if (!client) {
@@ -93,13 +113,13 @@ export default function ClientDetailPage({
   };
 
   const buildWhatsAppMessage = () => {
-    return `Bonjour ${client.name}, votre solde actuel chez ${shopName} est de ${formatFCFA(balance)} FCFA. Merci de passer régulariser dès que possible. Bonne journée !`;
+    return `Bonjour ${client.name}, votre solde chez ${shopName} est de ${formatFCFA(resteAPayer > 0 ? resteAPayer : 0)} FCFA. Merci de passer régler. Séqué-App vous remercie !`;
   };
 
   const sendReminder = () => {
     const msg = buildSmsMessage();
     const encodedMsg = encodeURIComponent(msg);
-    const phone = client.phone.replace(/\s+/g, "");
+    const phone = formatPhone242(client.phone);
     const smsUrl = `sms:${phone}?body=${encodedMsg}`;
     const a = document.createElement("a");
     a.href = smsUrl;
@@ -113,7 +133,8 @@ export default function ClientDetailPage({
   const sendWhatsApp = () => {
     const msg = buildWhatsAppMessage();
     const encodedMsg = encodeURIComponent(msg);
-    const phone = client.phone.replace(/\s+/g, "");
+    // Use +242 international format, strip + for wa.me URL
+    const phone = formatPhone242(client.phone).replace("+", "");
     const waUrl = `https://wa.me/${phone}?text=${encodedMsg}`;
     const a = document.createElement("a");
     a.href = waUrl;
@@ -127,6 +148,26 @@ export default function ClientDetailPage({
   const handleDelete = (txId: string) => {
     store.deleteTransaction(txId);
     toast.success("Transaction supprimée");
+  };
+
+  const handleQuickPayment = () => {
+    const amt = Number.parseFloat(payAmount);
+    if (!amt || amt <= 0) {
+      toast.error("Montant invalide");
+      return;
+    }
+    store.addTransaction({
+      clientId,
+      type: "paiement",
+      amount: amt,
+      product: payNote.trim() || "Paiement enregistré",
+      dueDate: payDate,
+    });
+    toast.success("Paiement enregistré !");
+    setPayAmount("");
+    setPayNote("");
+    setPayDate(new Date().toISOString().split("T")[0]);
+    setShowPaySheet(false);
   };
 
   const tabs: { key: TabType; label: string }[] = [
@@ -168,20 +209,20 @@ export default function ClientDetailPage({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <span className="text-foreground font-semibold">
-                {client.quartier}
+              <span className="text-xs text-muted-foreground font-medium">
+                Quartier &amp; Point de repère
               </span>
             </div>
-            <p className="text-muted-foreground text-sm">
-              {client.localisation}
+            <p className="text-foreground text-sm font-semibold">
+              {client.localisation || client.quartier || "—"}
             </p>
             <div className="flex items-center gap-2 mt-2">
               <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <a
-                href={`tel:${client.phone}`}
+                href={`tel:${formatPhone242(client.phone)}`}
                 className="text-muted-foreground text-sm"
               >
-                {client.phone}
+                {formatPhone242(client.phone)}
               </a>
             </div>
           </div>
@@ -263,7 +304,7 @@ export default function ClientDetailPage({
                     : "oklch(var(--orange))",
               }}
             >
-              Reste
+              Argent dehors
             </p>
             <p
               className="text-xs font-bold text-center leading-tight"
@@ -284,7 +325,7 @@ export default function ClientDetailPage({
           className="rounded-xl p-4 text-center"
           style={{ background: "oklch(var(--navy-light))" }}
         >
-          <p className="text-muted-foreground text-sm mb-1">Solde actuel</p>
+          <p className="text-muted-foreground text-sm mb-1">Argent dehors</p>
           <p
             className="text-3xl font-bold"
             style={{
@@ -303,7 +344,7 @@ export default function ClientDetailPage({
                 color: "oklch(var(--navy))",
               }}
             >
-              ✓ SOLDÉ
+              ✓ Dette Séquée !
             </span>
           )}
           {totalAvances > 0 && resteAPayer < 0 && (
@@ -355,18 +396,32 @@ export default function ClientDetailPage({
               style={{ background: "#25D366" }}
             >
               <MessageCircle className="w-4 h-4" />
-              Rappel WhatsApp
+              Relancer
             </button>
           </div>
         )}
+        {/* Quick payment button */}
+        <button
+          type="button"
+          data-ocid="client_detail.register_payment_button"
+          onClick={() => setShowPaySheet(true)}
+          className="w-full flex items-center justify-center gap-2 rounded-xl py-3 font-semibold text-sm transition-all active:scale-95"
+          style={{
+            background: "oklch(var(--emerald))",
+            color: "oklch(var(--navy))",
+          }}
+        >
+          <CreditCard className="w-4 h-4" />
+          Enregistrer un paiement
+        </button>
         <button
           type="button"
           data-ocid="client_detail.add_transaction_button"
           onClick={() => setShowAddTx(true)}
           className="w-full flex items-center justify-center gap-2 rounded-xl py-3 font-semibold text-sm transition-all active:scale-95"
           style={{
-            background: "oklch(var(--emerald))",
-            color: "oklch(var(--navy))",
+            background: "oklch(var(--navy-card))",
+            color: "oklch(var(--foreground))",
           }}
         >
           <Plus className="w-4 h-4" />
@@ -439,12 +494,12 @@ export default function ClientDetailPage({
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.04 }}
-            className="rounded-xl p-4 flex items-center gap-3"
+            className="rounded-xl p-4 flex items-start gap-3"
             style={{ background: "oklch(var(--navy-card))" }}
             data-ocid={`client_detail.transaction.item.${i + 1}`}
           >
             <Badge
-              className="flex-shrink-0 rounded-lg px-2 py-1 text-xs font-bold border-0"
+              className="flex-shrink-0 rounded-lg px-2 py-1 text-xs font-bold border-0 mt-0.5"
               style={{
                 background:
                   tx.type === "dette"
@@ -499,6 +554,29 @@ export default function ClientDetailPage({
               <p className="text-muted-foreground text-xs mt-0.5">
                 {formatDate(new Date(tx.createdAt).toISOString().split("T")[0])}
               </p>
+              {/* Photo proof thumbnail */}
+              {tx.photoBase64 && (
+                <button
+                  type="button"
+                  className="mt-2 flex items-center gap-1.5 group"
+                  onClick={() => setFullscreenPhoto(tx.photoBase64 ?? null)}
+                  data-ocid={`client_detail.photo_preview.${i + 1}`}
+                >
+                  <img
+                    src={tx.photoBase64}
+                    alt="Preuve"
+                    className="w-16 h-16 rounded-lg object-cover border-2 group-active:opacity-80 transition-opacity"
+                    style={{ borderColor: "oklch(var(--emerald) / 0.5)" }}
+                  />
+                  <span
+                    className="flex items-center gap-1 text-xs"
+                    style={{ color: "oklch(var(--emerald))" }}
+                  >
+                    <ZoomIn className="w-3 h-3" />
+                    Voir
+                  </span>
+                </button>
+              )}
             </div>
             {role !== "gerant" && (
               <button
@@ -517,6 +595,146 @@ export default function ClientDetailPage({
           </motion.div>
         ))}
       </div>
+
+      {/* Quick Payment Sheet */}
+      <Sheet
+        open={showPaySheet}
+        onOpenChange={(v) => !v && setShowPaySheet(false)}
+      >
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl border-0 px-4 pb-8"
+          style={{
+            background: "oklch(var(--navy-card))",
+            maxHeight: "70vh",
+            overflowY: "auto",
+          }}
+          data-ocid="client_detail.payment_sheet"
+        >
+          <SheetHeader className="mb-6">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="text-foreground text-xl font-bold">
+                Enregistrer un paiement
+              </SheetTitle>
+              <button
+                type="button"
+                onClick={() => setShowPaySheet(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: "oklch(var(--navy-light))" }}
+                data-ocid="client_detail.payment_close_button"
+              >
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+          </SheetHeader>
+          <div className="space-y-4">
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ background: "oklch(var(--navy-light))" }}
+            >
+              <p className="text-muted-foreground text-xs">Client</p>
+              <p className="text-foreground font-semibold">{client.name}</p>
+              <p
+                className="text-xs mt-0.5"
+                style={{ color: "oklch(var(--orange))" }}
+              >
+                Argent dehors : {formatFCFA(Math.max(0, resteAPayer))}
+              </p>
+            </div>
+            <div>
+              <Label className="text-muted-foreground text-sm mb-1.5 block">
+                Montant payé (FCFA)
+              </Label>
+              <Input
+                data-ocid="client_detail.payment_amount_input"
+                type="number"
+                inputMode="numeric"
+                value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+                placeholder="0"
+                className="border-border text-foreground text-lg font-bold"
+                style={{ background: "oklch(var(--navy-light))" }}
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-muted-foreground text-sm mb-1.5 block">
+                Date du paiement
+              </Label>
+              <Input
+                data-ocid="client_detail.payment_date_input"
+                type="date"
+                value={payDate}
+                onChange={(e) => setPayDate(e.target.value)}
+                className="border-border text-foreground"
+                style={{ background: "oklch(var(--navy-light))" }}
+              />
+            </div>
+            <div>
+              <Label className="text-muted-foreground text-sm mb-1.5 block">
+                Note (facultatif)
+              </Label>
+              <Input
+                data-ocid="client_detail.payment_note_input"
+                value={payNote}
+                onChange={(e) => setPayNote(e.target.value)}
+                placeholder="Ex: Remboursement partiel..."
+                className="border-border text-foreground"
+                style={{ background: "oklch(var(--navy-light))" }}
+              />
+            </div>
+            <Button
+              data-ocid="client_detail.payment_confirm_button"
+              onClick={handleQuickPayment}
+              className="w-full rounded-xl py-6 font-bold text-base"
+              style={{
+                background: "oklch(var(--emerald))",
+                color: "oklch(var(--navy))",
+              }}
+            >
+              Confirmer le paiement
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Fullscreen photo overlay */}
+      <AnimatePresence>
+        {fullscreenPhoto && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ background: "rgba(0,0,0,0.95)" }}
+            onClick={() => setFullscreenPhoto(null)}
+            data-ocid="client_detail.photo_modal"
+          >
+            <button
+              type="button"
+              className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center z-10"
+              style={{ background: "oklch(var(--navy-card))" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setFullscreenPhoto(null);
+              }}
+              data-ocid="client_detail.photo_close_button"
+            >
+              <X className="w-5 h-5 text-foreground" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              src={fullscreenPhoto}
+              alt="Preuve de transaction"
+              className="max-w-full max-h-full object-contain rounded-2xl"
+              style={{ maxWidth: "95vw", maxHeight: "90vh" }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AddTransactionModal
         open={showAddTx}

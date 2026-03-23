@@ -44,3 +44,16 @@ export function getStatusClass(status: Status): string {
       return "bg-muted text-muted-foreground border-0 font-medium text-xs";
   }
 }
+
+/**
+ * Ensures a phone number starts with +242 (Congo-Brazzaville).
+ * Congo numbers start with 0 (e.g. 065123456 → +242065123456).
+ */
+export function formatPhone242(phone: string): string {
+  let cleaned = phone.replace(/\s+/g, "");
+  if (cleaned.startsWith("+242")) return cleaned;
+  if (cleaned.startsWith("00242")) return `+${cleaned.slice(2)}`;
+  if (cleaned.startsWith("242")) return `+${cleaned}`;
+  // Keep leading zero — Congo numbers start with 0 (e.g. 065123456 → +242065123456)
+  return `+242${cleaned}`;
+}

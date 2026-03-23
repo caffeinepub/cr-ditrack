@@ -48,7 +48,7 @@ export default function Dashboard({
   const filtered = store.clients.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.quartier.toLowerCase().includes(search.toLowerCase()),
+      c.localisation.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -59,7 +59,7 @@ export default function Dashboard({
       {/* Header */}
       <header className="flex items-center justify-between py-5">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">CrédiTrack</h1>
+          <h1 className="text-2xl font-bold text-foreground">SÉQUÉ-APP</h1>
           <p className="text-muted-foreground text-xs capitalize">
             {role === "marchand" ? "Marchand" : "Gérant"}
           </p>
@@ -94,9 +94,7 @@ export default function Dashboard({
         style={{ background: "oklch(var(--navy-card))" }}
         data-ocid="dashboard.total_card"
       >
-        <p className="text-muted-foreground text-sm mb-1">
-          Solde Total à Percevoir
-        </p>
+        <p className="text-muted-foreground text-sm mb-1">Argent dehors</p>
         <p className="text-3xl font-bold text-emerald">{formatFCFA(total)}</p>
         <p className="text-muted-foreground text-xs mt-2">
           {store.clients.length} client{store.clients.length !== 1 ? "s" : ""}{" "}
@@ -193,13 +191,10 @@ export default function Dashboard({
                     </p>
                     <div className="flex items-center gap-1 mt-1">
                       <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                      <span className="text-muted-foreground text-xs">
-                        {client.quartier}
+                      <span className="text-muted-foreground text-xs truncate">
+                        {client.localisation || client.quartier}
                       </span>
                     </div>
-                    <p className="text-muted-foreground text-xs mt-0.5 truncate">
-                      {client.localisation}
-                    </p>
                   </div>
                   <div className="flex flex-col items-end gap-2 ml-3">
                     {balance > 0 ? (
@@ -207,7 +202,7 @@ export default function Dashboard({
                         className="text-sm font-bold"
                         style={{ color: "oklch(var(--orange))" }}
                       >
-                        {formatFCFA(balance)} dû
+                        {formatFCFA(balance)}
                       </span>
                     ) : (
                       <span

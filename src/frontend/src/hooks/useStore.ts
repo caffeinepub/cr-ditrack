@@ -18,6 +18,7 @@ export interface Transaction {
   product: string;
   dueDate: string;
   reminderTime?: string;
+  photoBase64?: string;
   createdAt: number;
 }
 

@@ -12,6 +12,7 @@ import { X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Client } from "../hooks/useStore";
+import { formatPhone242 } from "../utils/format";
 
 interface Props {
   open: boolean;
@@ -22,15 +23,13 @@ interface Props {
 
 export default function AddClientModal({ open, onClose, onAdd }: Props) {
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [quartier, setQuartier] = useState("");
+  const [phoneRaw, setPhoneRaw] = useState("");
   const [localisation, setLocalisation] = useState("");
   const [notes, setNotes] = useState("");
 
   const reset = () => {
     setName("");
-    setPhone("");
-    setQuartier("");
+    setPhoneRaw("");
     setLocalisation("");
     setNotes("");
   };
@@ -40,14 +39,15 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
       toast.error("Le nom est obligatoire");
       return;
     }
-    if (!phone.trim()) {
+    if (!phoneRaw.trim()) {
       toast.error("Le téléphone est obligatoire");
       return;
     }
+    const formattedPhone = formatPhone242(phoneRaw.trim());
     onAdd({
       name: name.trim(),
-      phone: phone.trim(),
-      quartier,
+      phone: formattedPhone,
+      quartier: "",
       localisation,
       notes,
     });
@@ -55,6 +55,8 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
     reset();
     onClose();
   };
+
+  const phonePreview = phoneRaw.trim() ? formatPhone242(phoneRaw.trim()) : "";
 
   return (
     <Sheet
@@ -98,7 +100,8 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
         <div className="space-y-4">
           <div>
             <Label className="text-muted-foreground text-sm mb-1.5 block">
-              Nom complet <span className="text-orange">*</span>
+              Nom complet{" "}
+              <span style={{ color: "oklch(var(--orange))" }}>*</span>
             </Label>
             <Input
               data-ocid="add_client.name_input"
@@ -111,40 +114,47 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
           </div>
           <div>
             <Label className="text-muted-foreground text-sm mb-1.5 block">
-              Téléphone <span className="text-orange">*</span>
+              Téléphone <span style={{ color: "oklch(var(--orange))" }}>*</span>
             </Label>
-            <Input
-              data-ocid="add_client.phone_input"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+225 07 00 00 00 00"
-              className="border-border text-foreground"
-              style={{ background: "oklch(var(--navy-light))" }}
-            />
+            <div className="flex gap-2 items-center">
+              <span
+                className="text-sm font-bold px-3 py-2 rounded-xl flex-shrink-0"
+                style={{
+                  background: "oklch(var(--navy-light))",
+                  color: "oklch(var(--emerald))",
+                }}
+              >
+                +242
+              </span>
+              <Input
+                data-ocid="add_client.phone_input"
+                type="tel"
+                inputMode="numeric"
+                value={phoneRaw}
+                onChange={(e) => setPhoneRaw(e.target.value)}
+                placeholder="065 123 456"
+                className="border-border text-foreground flex-1"
+                style={{ background: "oklch(var(--navy-light))" }}
+              />
+            </div>
+            {phonePreview && (
+              <p
+                className="text-xs mt-1"
+                style={{ color: "oklch(var(--emerald))" }}
+              >
+                Format enregistré : {phonePreview}
+              </p>
+            )}
           </div>
           <div>
             <Label className="text-muted-foreground text-sm mb-1.5 block">
-              Quartier
-            </Label>
-            <Input
-              data-ocid="add_client.quartier_input"
-              value={quartier}
-              onChange={(e) => setQuartier(e.target.value)}
-              placeholder="Ex: Cocody, Yopougon..."
-              className="border-border text-foreground"
-              style={{ background: "oklch(var(--navy-light))" }}
-            />
-          </div>
-          <div>
-            <Label className="text-muted-foreground text-sm mb-1.5 block">
-              Localisation précise
+              Quartier &amp; Point de repère
             </Label>
             <Textarea
               data-ocid="add_client.localisation_input"
               value={localisation}
               onChange={(e) => setLocalisation(e.target.value)}
-              placeholder="Ex: Face à la grande mosquée, après le marché central..."
+              placeholder="Ex: Derrière le marché Total, portail bleu"
               className="border-border text-foreground resize-none"
               style={{ background: "oklch(var(--navy-light))" }}
               rows={3}
