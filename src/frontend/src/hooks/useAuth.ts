@@ -1,16 +1,18 @@
 import { useState } from "react";
 
-export type Role = "marchand" | "gerant";
+export type Role = "marchand" | "gerant" | "admin";
 
 const SESSION_KEY = "creditrack_role";
 const PIN_KEY = "creditrack_pin";
+const ADMIN_PIN_KEY = "seque_admin_pin";
 const DEFAULT_PIN = "1234";
+const DEFAULT_ADMIN_PIN = "9999";
 
 function getStoredRole(): Role | null {
   const v = sessionStorage.getItem(SESSION_KEY);
-  // backward compat: treat legacy "proprietaire" as "marchand"
   if (v === "marchand" || v === "proprietaire") return "marchand";
   if (v === "gerant") return "gerant";
+  if (v === "admin") return "admin";
   return null;
 }
 
@@ -20,6 +22,14 @@ export function getStoredPin(): string {
 
 export function savePin(pin: string): void {
   localStorage.setItem(PIN_KEY, pin);
+}
+
+export function getStoredAdminPin(): string {
+  return localStorage.getItem(ADMIN_PIN_KEY) || DEFAULT_ADMIN_PIN;
+}
+
+export function setStoredAdminPin(pin: string): void {
+  localStorage.setItem(ADMIN_PIN_KEY, pin);
 }
 
 export function useAuth() {

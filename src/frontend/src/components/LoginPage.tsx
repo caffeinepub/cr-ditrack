@@ -1,16 +1,21 @@
-import { Crown, UserRound } from "lucide-react";
+import { Crown, Shield, UserRound } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import type { Role } from "../hooks/useAuth";
-import { getStoredPin } from "../hooks/useAuth";
+import { getStoredAdminPin, getStoredPin } from "../hooks/useAuth";
 import PinModal from "./PinModal";
 
 interface Props {
   onLogin: (role: Role) => void;
 }
 
+type PinTarget = "marchand" | "admin" | null;
+
 export default function LoginPage({ onLogin }: Props) {
-  const [showPin, setShowPin] = useState(false);
+  const [pinTarget, setPinTarget] = useState<PinTarget>(null);
+
+  const storedPin =
+    pinTarget === "admin" ? getStoredAdminPin() : getStoredPin();
 
   return (
     <>
@@ -74,7 +79,7 @@ export default function LoginPage({ onLogin }: Props) {
           <button
             type="button"
             data-ocid="login.marchand_button"
-            onClick={() => setShowPin(true)}
+            onClick={() => setPinTarget("marchand")}
             className="w-full rounded-2xl p-6 flex items-center gap-4 transition-all active:scale-95"
             style={{ background: "oklch(var(--navy-card))" }}
           >
@@ -115,6 +120,30 @@ export default function LoginPage({ onLogin }: Props) {
               </div>
             </div>
           </button>
+
+          <button
+            type="button"
+            data-ocid="login.admin_button"
+            onClick={() => setPinTarget("admin")}
+            className="w-full rounded-2xl p-6 flex items-center gap-4 transition-all active:scale-95"
+            style={{ background: "oklch(var(--navy-light))" }}
+          >
+            <div
+              className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "oklch(0.35 0.08 240)" }}
+            >
+              <Shield
+                className="w-7 h-7"
+                style={{ color: "oklch(var(--emerald))" }}
+              />
+            </div>
+            <div className="text-left">
+              <div className="text-foreground font-bold text-xl">Admin</div>
+              <div className="text-muted-foreground text-sm mt-0.5">
+                SÉQUÉ-CONTROL — Réseau
+              </div>
+            </div>
+          </button>
         </motion.div>
 
         <p className="text-muted-foreground text-xs mt-12 text-center">
@@ -130,14 +159,15 @@ export default function LoginPage({ onLogin }: Props) {
         </p>
       </div>
 
-      {showPin && (
+      {pinTarget && (
         <PinModal
-          storedPin={getStoredPin()}
+          storedPin={storedPin}
           onSuccess={() => {
-            setShowPin(false);
-            onLogin("marchand");
+            const target = pinTarget;
+            setPinTarget(null);
+            onLogin(target);
           }}
-          onCancel={() => setShowPin(false)}
+          onCancel={() => setPinTarget(null)}
         />
       )}
     </>

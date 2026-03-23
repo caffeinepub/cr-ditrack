@@ -8,7 +8,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { X } from "lucide-react";
+import { Lock, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Client } from "../hooks/useStore";
@@ -19,13 +19,23 @@ interface Props {
   onClose: () => void;
   onAdd: (client: Omit<Client, "id" | "createdAt">) => void;
   initialClientId?: string;
+  isPremium?: boolean;
+  clientCount?: number;
 }
 
-export default function AddClientModal({ open, onClose, onAdd }: Props) {
+export default function AddClientModal({
+  open,
+  onClose,
+  onAdd,
+  isPremium = true,
+  clientCount = 0,
+}: Props) {
   const [name, setName] = useState("");
   const [phoneRaw, setPhoneRaw] = useState("");
   const [localisation, setLocalisation] = useState("");
   const [notes, setNotes] = useState("");
+
+  const atLimit = !isPremium && clientCount >= 10;
 
   const reset = () => {
     setName("");
@@ -35,6 +45,12 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
   };
 
   const handleSubmit = () => {
+    if (atLimit) {
+      toast.error(
+        "Limite de 10 clients atteinte. Passez en Premium pour continuer.",
+      );
+      return;
+    }
     if (!name.trim()) {
       toast.error("Le nom est obligatoire");
       return;
@@ -97,6 +113,28 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
           </div>
         </SheetHeader>
 
+        {atLimit && (
+          <div
+            className="flex items-center gap-2 rounded-xl px-4 py-3 mb-4"
+            style={{
+              background: "oklch(var(--orange) / 0.15)",
+              border: "1px solid oklch(var(--orange) / 0.3)",
+            }}
+            data-ocid="add_client.error_state"
+          >
+            <Lock
+              className="w-4 h-4 flex-shrink-0"
+              style={{ color: "oklch(var(--orange))" }}
+            />
+            <p
+              className="text-xs font-semibold"
+              style={{ color: "oklch(var(--orange))" }}
+            >
+              Limite de 10 clients atteinte. Passez en Premium pour continuer.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div>
             <Label className="text-muted-foreground text-sm mb-1.5 block">
@@ -110,6 +148,7 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
               placeholder="Ex: Kouassi Jean-Baptiste"
               className="border-border text-foreground"
               style={{ background: "oklch(var(--navy-light))" }}
+              disabled={atLimit}
             />
           </div>
           <div>
@@ -135,6 +174,7 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
                 placeholder="065 123 456"
                 className="border-border text-foreground flex-1"
                 style={{ background: "oklch(var(--navy-light))" }}
+                disabled={atLimit}
               />
             </div>
             {phonePreview && (
@@ -158,6 +198,7 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
               className="border-border text-foreground resize-none"
               style={{ background: "oklch(var(--navy-light))" }}
               rows={3}
+              disabled={atLimit}
             />
             <p className="text-muted-foreground text-xs mt-1.5">
               Décrivez à l'aide de repères visibles : mosquée, marché, arbre,
@@ -176,6 +217,7 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
               className="border-border text-foreground resize-none"
               style={{ background: "oklch(var(--navy-light))" }}
               rows={3}
+              disabled={atLimit}
             />
           </div>
           <Button
@@ -183,11 +225,15 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
             onClick={handleSubmit}
             className="w-full rounded-xl py-6 font-bold text-base"
             style={{
-              background: "oklch(var(--emerald))",
-              color: "oklch(var(--navy))",
+              background: atLimit
+                ? "oklch(var(--navy-light))"
+                : "oklch(var(--emerald))",
+              color: atLimit
+                ? "oklch(var(--muted-foreground))"
+                : "oklch(var(--navy))",
             }}
           >
-            Enregistrer le client
+            {atLimit ? "🔒 Limite atteinte" : "Enregistrer le client"}
           </Button>
         </div>
       </SheetContent>

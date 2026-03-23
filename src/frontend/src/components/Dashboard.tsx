@@ -15,6 +15,7 @@ import { getStoredPin } from "../hooks/useAuth";
 import type { useStore } from "../hooks/useStore";
 import AddClientModal from "./AddClientModal";
 import AddTransactionModal from "./AddTransactionModal";
+import PaywallBanner from "./PaywallBanner";
 import SettingsModal from "./SettingsModal";
 
 type Store = ReturnType<typeof useStore>;
@@ -25,6 +26,7 @@ interface Props {
   onNavigateToClient: (id: string) => void;
   todayReminderCount?: number;
   onShopNameChange?: (name: string) => void;
+  isPremium?: boolean;
 }
 
 function formatFCFA(amount: number) {
@@ -37,6 +39,7 @@ export default function Dashboard({
   onNavigateToClient,
   todayReminderCount = 0,
   onShopNameChange,
+  isPremium = true,
 }: Props) {
   const [search, setSearch] = useState("");
   const [showAddClient, setShowAddClient] = useState(false);
@@ -44,6 +47,7 @@ export default function Dashboard({
   const [showSettings, setShowSettings] = useState(false);
 
   const total = store.getTotalReceivable();
+  const clientCount = store.clients.length;
 
   const filtered = store.clients.filter(
     (c) =>
@@ -97,11 +101,26 @@ export default function Dashboard({
         <p className="text-muted-foreground text-sm mb-1">Argent dehors</p>
         <p className="text-3xl font-bold text-emerald">{formatFCFA(total)}</p>
         <p className="text-muted-foreground text-xs mt-2">
-          {store.clients.length} client{store.clients.length !== 1 ? "s" : ""}{" "}
-          enregistré
-          {store.clients.length !== 1 ? "s" : ""}
+          {clientCount} client{clientCount !== 1 ? "s" : ""} enregistré
+          {clientCount !== 1 ? "s" : ""}
+          {!isPremium && (
+            <span
+              className="ml-2 font-semibold"
+              style={{
+                color:
+                  clientCount >= 10
+                    ? "oklch(var(--orange))"
+                    : "oklch(var(--muted-foreground))",
+              }}
+            >
+              ({clientCount}/10)
+            </span>
+          )}
         </p>
       </motion.div>
+
+      {/* Paywall banner */}
+      <PaywallBanner isPremium={isPremium} clientCount={clientCount} />
 
       {/* Today's reminders badge */}
       {todayReminderCount > 0 && (
@@ -247,6 +266,8 @@ export default function Dashboard({
         open={showAddClient}
         onClose={() => setShowAddClient(false)}
         onAdd={store.addClient}
+        isPremium={isPremium}
+        clientCount={clientCount}
       />
       <AddTransactionModal
         open={showAddTx}

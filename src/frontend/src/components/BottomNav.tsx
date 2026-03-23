@@ -16,6 +16,9 @@ export default function BottomNav({
   onLogout,
   todayReminderCount = 0,
 }: Props) {
+  // Admin has their own full-page interface with no bottom nav
+  if (role === "admin") return null;
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-border px-2 pb-safe"
@@ -50,7 +53,6 @@ export default function BottomNav({
         </span>
       </button>
 
-      {/* Rappels — visible for both roles */}
       <button
         type="button"
         data-ocid="bottom_nav.rappels_link"

@@ -6,11 +6,13 @@ import ClientDetailPage from "./components/ClientDetailPage";
 import Dashboard from "./components/Dashboard";
 import LoginPage from "./components/LoginPage";
 import PersonalRemindersPage from "./components/PersonalRemindersPage";
+import SequeControlPage from "./components/SequeControlPage";
 import StatisticsPage from "./components/StatisticsPage";
 import { useAuth } from "./hooks/useAuth";
 import { useReminderScheduler } from "./hooks/useReminderScheduler";
 import { getStoredShopName } from "./hooks/useShopName";
 import { useStore } from "./hooks/useStore";
+import { useSubscription } from "./hooks/useSubscription";
 
 export type Page =
   | { name: "dashboard" }
@@ -21,6 +23,7 @@ export type Page =
 export default function App() {
   const auth = useAuth();
   const store = useStore();
+  const subscription = useSubscription();
   const [page, setPage] = useState<Page>({ name: "dashboard" });
   const [notifWarningDismissed, setNotifWarningDismissed] = useState(false);
   const [shopName, setShopName] = useState(getStoredShopName);
@@ -41,6 +44,16 @@ export default function App() {
     return (
       <>
         <LoginPage onLogin={auth.login} />
+        <Toaster position="top-center" />
+      </>
+    );
+  }
+
+  // Admin gets a dedicated interface
+  if (auth.role === "admin") {
+    return (
+      <>
+        <SequeControlPage onLogout={auth.logout} />
         <Toaster position="top-center" />
       </>
     );
@@ -101,6 +114,7 @@ export default function App() {
               setPage({ name: "client-detail", clientId: id })
             }
             onShopNameChange={setShopName}
+            isPremium={subscription.isPremium}
           />
         )}
         {page.name === "client-detail" && (
