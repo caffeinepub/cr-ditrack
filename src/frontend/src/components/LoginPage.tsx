@@ -50,7 +50,7 @@ export default function LoginPage({ onLogin }: Props) {
 
           <button
             type="button"
-            data-ocid="login.proprietaire_button"
+            data-ocid="login.marchand_button"
             onClick={() => setShowPin(true)}
             className="w-full rounded-2xl p-6 flex items-center gap-4 transition-all active:scale-95"
             style={{ background: "oklch(var(--navy-card))" }}
@@ -59,9 +59,7 @@ export default function LoginPage({ onLogin }: Props) {
               <Crown className="w-7 h-7 text-white" />
             </div>
             <div className="text-left">
-              <div className="text-foreground font-bold text-xl">
-                Propriétaire
-              </div>
+              <div className="text-foreground font-bold text-xl">Marchand</div>
               <div className="text-muted-foreground text-sm mt-0.5">
                 Accès complet — stats & rapports
               </div>
@@ -105,7 +103,7 @@ export default function LoginPage({ onLogin }: Props) {
           storedPin={getStoredPin()}
           onSuccess={() => {
             setShowPin(false);
-            onLogin("proprietaire");
+            onLogin("marchand");
           }}
           onCancel={() => setShowPin(false)}
         />

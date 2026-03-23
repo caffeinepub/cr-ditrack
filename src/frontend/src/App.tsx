@@ -9,6 +9,7 @@ import PersonalRemindersPage from "./components/PersonalRemindersPage";
 import StatisticsPage from "./components/StatisticsPage";
 import { useAuth } from "./hooks/useAuth";
 import { useReminderScheduler } from "./hooks/useReminderScheduler";
+import { getStoredShopName } from "./hooks/useShopName";
 import { useStore } from "./hooks/useStore";
 
 export type Page =
@@ -22,6 +23,7 @@ export default function App() {
   const store = useStore();
   const [page, setPage] = useState<Page>({ name: "dashboard" });
   const [notifWarningDismissed, setNotifWarningDismissed] = useState(false);
+  const [shopName, setShopName] = useState(getStoredShopName);
 
   const { notifPermission, scheduledCount } = useReminderScheduler({
     clients: store.clients,
@@ -98,13 +100,16 @@ export default function App() {
             onNavigateToClient={(id) =>
               setPage({ name: "client-detail", clientId: id })
             }
+            onShopNameChange={setShopName}
           />
         )}
         {page.name === "client-detail" && (
           <ClientDetailPage
             clientId={page.clientId}
             store={store}
+            role={auth.role}
             onBack={() => setPage({ name: "dashboard" })}
+            shopName={shopName}
           />
         )}
         {page.name === "statistics" && (

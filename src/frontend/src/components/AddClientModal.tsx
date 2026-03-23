@@ -140,14 +140,19 @@ export default function AddClientModal({ open, onClose, onAdd }: Props) {
             <Label className="text-muted-foreground text-sm mb-1.5 block">
               Localisation précise
             </Label>
-            <Input
+            <Textarea
               data-ocid="add_client.localisation_input"
               value={localisation}
               onChange={(e) => setLocalisation(e.target.value)}
-              placeholder="Ex: Rue des Jardins, face à l'école"
-              className="border-border text-foreground"
+              placeholder="Ex: Face à la grande mosquée, après le marché central..."
+              className="border-border text-foreground resize-none"
               style={{ background: "oklch(var(--navy-light))" }}
+              rows={3}
             />
+            <p className="text-muted-foreground text-xs mt-1.5">
+              Décrivez à l'aide de repères visibles : mosquée, marché, arbre,
+              école, carrefour...
+            </p>
           </div>
           <div>
             <Label className="text-muted-foreground text-sm mb-1.5 block">

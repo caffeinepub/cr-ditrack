@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export type Role = "proprietaire" | "gerant";
+export type Role = "marchand" | "gerant";
 
 const SESSION_KEY = "creditrack_role";
 const PIN_KEY = "creditrack_pin";
@@ -8,7 +8,9 @@ const DEFAULT_PIN = "1234";
 
 function getStoredRole(): Role | null {
   const v = sessionStorage.getItem(SESSION_KEY);
-  if (v === "proprietaire" || v === "gerant") return v;
+  // backward compat: treat legacy "proprietaire" as "marchand"
+  if (v === "marchand" || v === "proprietaire") return "marchand";
+  if (v === "gerant") return "gerant";
   return null;
 }
 

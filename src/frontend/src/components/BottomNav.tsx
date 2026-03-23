@@ -89,7 +89,7 @@ export default function BottomNav({
         </span>
       </button>
 
-      {role === "proprietaire" && (
+      {role === "marchand" && (
         <button
           type="button"
           data-ocid="bottom_nav.statistics_link"

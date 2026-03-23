@@ -15,7 +15,7 @@ import { getStoredPin } from "../hooks/useAuth";
 import type { useStore } from "../hooks/useStore";
 import AddClientModal from "./AddClientModal";
 import AddTransactionModal from "./AddTransactionModal";
-import ChangePinModal from "./ChangePinModal";
+import SettingsModal from "./SettingsModal";
 
 type Store = ReturnType<typeof useStore>;
 
@@ -24,6 +24,7 @@ interface Props {
   role: Role;
   onNavigateToClient: (id: string) => void;
   todayReminderCount?: number;
+  onShopNameChange?: (name: string) => void;
 }
 
 function formatFCFA(amount: number) {
@@ -35,11 +36,12 @@ export default function Dashboard({
   role,
   onNavigateToClient,
   todayReminderCount = 0,
+  onShopNameChange,
 }: Props) {
   const [search, setSearch] = useState("");
   const [showAddClient, setShowAddClient] = useState(false);
   const [showAddTx, setShowAddTx] = useState(false);
-  const [showChangePin, setShowChangePin] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const total = store.getTotalReceivable();
 
@@ -58,16 +60,19 @@ export default function Dashboard({
       <header className="flex items-center justify-between py-5">
         <div>
           <h1 className="text-2xl font-bold text-foreground">CrédiTrack</h1>
-          <p className="text-muted-foreground text-xs capitalize">{role}</p>
+          <p className="text-muted-foreground text-xs capitalize">
+            {role === "marchand" ? "Marchand" : "Gérant"}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          {role === "proprietaire" && (
+          {role === "marchand" && (
             <button
               type="button"
-              onClick={() => setShowChangePin(true)}
-              title="Modifier le code PIN"
+              onClick={() => setShowSettings(true)}
+              title="Paramètres"
               className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95"
               style={{ background: "oklch(var(--navy-card))" }}
+              data-ocid="dashboard.settings_button"
             >
               <Settings className="w-5 h-5 text-muted-foreground" />
             </button>
@@ -123,7 +128,6 @@ export default function Dashboard({
         </motion.div>
       )}
 
-      {/* No reminder badge spacing fallback */}
       {todayReminderCount === 0 && <div className="mb-5" />}
 
       {/* Search + Add client */}
@@ -139,19 +143,21 @@ export default function Dashboard({
             style={{ background: "oklch(var(--navy-card))" }}
           />
         </div>
-        <button
-          type="button"
-          data-ocid="dashboard.add_client_button"
-          onClick={() => setShowAddClient(true)}
-          className="flex items-center gap-2 px-4 rounded-xl font-semibold text-sm text-navy transition-all active:scale-95 flex-shrink-0"
-          style={{
-            background: "oklch(var(--emerald))",
-            color: "oklch(var(--navy))",
-          }}
-        >
-          <Plus className="w-4 h-4" />
-          Client
-        </button>
+        {role !== "gerant" && (
+          <button
+            type="button"
+            data-ocid="dashboard.add_client_button"
+            onClick={() => setShowAddClient(true)}
+            className="flex items-center gap-2 px-4 rounded-xl font-semibold text-sm text-navy transition-all active:scale-95 flex-shrink-0"
+            style={{
+              background: "oklch(var(--emerald))",
+              color: "oklch(var(--navy))",
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            Client
+          </button>
+        )}
       </div>
 
       {/* Client list */}
@@ -205,10 +211,13 @@ export default function Dashboard({
                       </span>
                     ) : (
                       <span
-                        className="text-sm font-bold"
-                        style={{ color: "oklch(var(--emerald))" }}
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold"
+                        style={{
+                          background: "oklch(var(--emerald))",
+                          color: "oklch(var(--navy))",
+                        }}
                       >
-                        Soldé ✓
+                        SOLDÉ
                       </span>
                     )}
                     <a
@@ -251,10 +260,11 @@ export default function Dashboard({
         getClientBalance={store.getClientBalance}
         onAdd={store.addTransaction}
       />
-      <ChangePinModal
-        open={showChangePin}
-        onClose={() => setShowChangePin(false)}
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
         currentPin={getStoredPin()}
+        onShopNameChange={onShopNameChange}
       />
     </div>
   );
