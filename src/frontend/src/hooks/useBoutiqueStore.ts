@@ -12,6 +12,20 @@ export interface Boutique {
   joinDate: string;
   transactionCount: number;
   totalAmountFCFA: number;
+  accessCode: string;
+  owner: string;
+  lastPaymentDate?: string;
+}
+
+export interface GlobalTransaction {
+  id: string;
+  storeId: string;
+  storeName: string;
+  clientName: string;
+  type: "dette" | "paiement";
+  amount: number;
+  product: string;
+  createdAt: number;
 }
 
 function load(): Boutique[] {
@@ -24,6 +38,89 @@ function load(): Boutique[] {
 
 function save(data: Boutique[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+/** Lookup a boutique by its access code (case-insensitive). */
+export function getBoutiqueByCode(code: string): Boutique | undefined {
+  const boutiques = load();
+  return boutiques.find(
+    (b) => b.accessCode.trim().toUpperCase() === code.trim().toUpperCase(),
+  );
+}
+
+/** Reads real client/transaction data from a store's localStorage */
+export function getStoreLiveStats(storeId: string): {
+  clientCount: number;
+  totalDebt: number;
+  lastTransactionDate: string | null;
+} {
+  try {
+    const clients: Array<{ id: string }> = JSON.parse(
+      localStorage.getItem(`creditrack_clients_${storeId}`) || "[]",
+    );
+    const transactions: Array<{
+      clientId: string;
+      type: string;
+      amount: number;
+      createdAt: number;
+    }> = JSON.parse(
+      localStorage.getItem(`creditrack_transactions_${storeId}`) || "[]",
+    );
+    const clientCount = clients.length;
+    const totalDebt = transactions.reduce(
+      (sum, t) => (t.type === "dette" ? sum + t.amount : sum - t.amount),
+      0,
+    );
+    const dates = transactions.map((t) => t.createdAt).sort((a, b) => b - a);
+    const lastTransactionDate =
+      dates.length > 0 ? new Date(dates[0]).toISOString().split("T")[0] : null;
+    return {
+      clientCount,
+      totalDebt: Math.max(0, totalDebt),
+      lastTransactionDate,
+    };
+  } catch {
+    return { clientCount: 0, totalDebt: 0, lastTransactionDate: null };
+  }
+}
+
+/** Collects all transactions across all boutiques */
+export function getAllTransactions(boutiques: Boutique[]): GlobalTransaction[] {
+  const result: GlobalTransaction[] = [];
+  for (const b of boutiques) {
+    try {
+      const clients: Array<{ id: string; name: string }> = JSON.parse(
+        localStorage.getItem(`creditrack_clients_${b.id}`) || "[]",
+      );
+      const transactions: Array<{
+        id: string;
+        clientId: string;
+        type: string;
+        amount: number;
+        product: string;
+        createdAt: number;
+      }> = JSON.parse(
+        localStorage.getItem(`creditrack_transactions_${b.id}`) || "[]",
+      );
+      const clientMap: Record<string, string> = {};
+      for (const c of clients) clientMap[c.id] = c.name;
+      for (const t of transactions) {
+        result.push({
+          id: t.id,
+          storeId: b.id,
+          storeName: b.name,
+          clientName: clientMap[t.clientId] || "Inconnu",
+          type: t.type as "dette" | "paiement",
+          amount: t.amount,
+          product: t.product,
+          createdAt: t.createdAt,
+        });
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  return result.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 function getISOWeek(date: Date): string {
@@ -51,6 +148,16 @@ export function useBoutiqueStore() {
   };
 
   const addBoutique = (data: Omit<Boutique, "id" | "joinDate">): Boutique => {
+    const existing = boutiques.find(
+      (b) =>
+        b.accessCode.trim().toUpperCase() ===
+        data.accessCode.trim().toUpperCase(),
+    );
+    if (existing) {
+      throw new Error(
+        "Ce code d'accès est déjà utilisé par une autre boutique.",
+      );
+    }
     const b: Boutique = {
       ...data,
       id: `b_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -89,6 +196,12 @@ export function useBoutiqueStore() {
       boutiques.map((b) =>
         b.id === id ? { ...b, transactionCount, totalAmountFCFA } : b,
       ),
+    );
+  };
+
+  const updateLastPaymentDate = (id: string, date: string) => {
+    update(
+      boutiques.map((b) => (b.id === id ? { ...b, lastPaymentDate: date } : b)),
     );
   };
 
@@ -137,6 +250,7 @@ export function useBoutiqueStore() {
     downgradeToFree,
     deleteBoutique,
     updateStats,
+    updateLastPaymentDate,
     getGlobalStats,
     getWeeklyGrowth,
   };

@@ -15,16 +15,16 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Camera, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { Client, Transaction } from "../hooks/useStore";
+import type { Client, Transaction } from "../hooks/useBackendStore";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   clients: Client[];
   getClientBalance: (id: string) => number;
-  onAdd: (tx: Omit<Transaction, "id" | "createdAt">) => void;
+  onAdd: (tx: Omit<Transaction, "id" | "createdAt">) => Promise<void>;
   preselectedClientId?: string;
 }
 
@@ -47,9 +47,17 @@ export default function AddTransactionModal({
   const [dueDate, setDueDate] = useState("");
   const [reminderTime, setReminderTime] = useState("");
   const [photoBase64, setPhotoBase64] = useState<string | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const currentBalance = clientId ? getClientBalance(clientId) : null;
+  useEffect(() => {
+    if (open) setClientId(preselectedClientId ?? "");
+  }, [open, preselectedClientId]);
+
+  const currentBalance = useMemo(
+    () => (clientId ? getClientBalance(clientId) : null),
+    [clientId, getClientBalance],
+  );
   const amountNum = Number.parseFloat(amount) || 0;
   const newBalance =
     currentBalance !== null
@@ -76,11 +84,10 @@ export default function AddTransactionModal({
       setPhotoBase64(reader.result as string);
     };
     reader.readAsDataURL(file);
-    // Reset input so same file can be reselected
     e.target.value = "";
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!clientId) {
       toast.error("Choisissez un client");
       return;
@@ -93,26 +100,31 @@ export default function AddTransactionModal({
       toast.error("Description requise");
       return;
     }
-    onAdd({
-      clientId,
-      type,
-      amount: amountNum,
-      product: product.trim(),
-      dueDate,
-      reminderTime: reminderTime || undefined,
-      photoBase64: photoBase64 || undefined,
-    });
-    toast.success(
-      type === "dette" ? "Dette enregistrée !" : "Paiement enregistré !",
-    );
-    reset();
-    onClose();
+    if (type === "dette" && !photoBase64) {
+      toast.error("La preuve photo est obligatoire pour une dette");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onAdd({
+        clientId,
+        type,
+        amount: amountNum,
+        product: product.trim(),
+        dueDate,
+        reminderTime: reminderTime || undefined,
+        photoBase64,
+      });
+      toast.success(
+        type === "dette" ? "Dette enregistrée !" : "Paiement enregistré !",
+      );
+      reset();
+      onClose();
+    } catch {
+      toast.error("Erreur lors de l'enregistrement.");
+    }
+    setSaving(false);
   };
-
-  const selectedClient = useMemo(
-    () => clients.find((c) => c.id === clientId),
-    [clients, clientId],
-  );
 
   return (
     <Sheet
@@ -128,13 +140,13 @@ export default function AddTransactionModal({
         side="bottom"
         className="rounded-t-2xl border-0 px-4 pb-8"
         style={{
-          background: "oklch(var(--navy-card))",
+          background: "oklch(var(--forest-card))",
           maxHeight: "92vh",
           overflowY: "auto",
         }}
         data-ocid="add_transaction.sheet"
       >
-        <SheetHeader className="mb-6">
+        <SheetHeader className="mb-5">
           <div className="flex items-center justify-between">
             <SheetTitle className="text-foreground text-xl font-bold">
               Nouvelle transaction
@@ -146,7 +158,7 @@ export default function AddTransactionModal({
                 onClose();
               }}
               className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ background: "oklch(var(--navy-light))" }}
+              style={{ background: "oklch(var(--forest-light))" }}
             >
               <X className="w-4 h-4 text-muted-foreground" />
             </button>
@@ -154,162 +166,129 @@ export default function AddTransactionModal({
         </SheetHeader>
 
         <div className="space-y-4">
-          {/* Type toggle */}
-          <div className="flex rounded-xl overflow-hidden border border-border">
-            <button
-              type="button"
-              data-ocid="add_transaction.dette_toggle"
-              onClick={() => setType("dette")}
-              className="flex-1 py-3 text-sm font-bold transition-all"
-              style={{
-                background:
-                  type === "dette"
-                    ? "oklch(var(--orange))"
-                    : "oklch(var(--navy-light))",
-                color:
-                  type === "dette" ? "white" : "oklch(var(--muted-foreground))",
-              }}
-            >
-              Dette
-            </button>
-            <button
-              type="button"
-              data-ocid="add_transaction.paiement_toggle"
-              onClick={() => setType("paiement")}
-              className="flex-1 py-3 text-sm font-bold transition-all"
-              style={{
-                background:
-                  type === "paiement"
-                    ? "oklch(var(--emerald))"
-                    : "oklch(var(--navy-light))",
-                color:
-                  type === "paiement"
-                    ? "oklch(var(--navy))"
-                    : "oklch(var(--muted-foreground))",
-              }}
-            >
-              Paiement
-            </button>
+          {/* Client selector */}
+          <div>
+            <Label className="text-muted-foreground text-sm mb-1.5 block">
+              Client <span style={{ color: "oklch(var(--orange))" }}>*</span>
+            </Label>
+            <Select value={clientId} onValueChange={setClientId}>
+              <SelectTrigger
+                className="border-border text-foreground"
+                style={{ background: "oklch(var(--forest-light))" }}
+                data-ocid="add_transaction.select"
+              >
+                <SelectValue placeholder="Sélectionnez un client" />
+              </SelectTrigger>
+              <SelectContent
+                style={{ background: "oklch(var(--forest-card))" }}
+              >
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Client selector */}
-          {!preselectedClientId && (
-            <div>
-              <Label className="text-muted-foreground text-sm mb-1.5 block">
-                Client
-              </Label>
-              <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger
-                  data-ocid="add_transaction.client_select"
-                  className="border-border text-foreground"
-                  style={{ background: "oklch(var(--navy-light))" }}
-                >
-                  <SelectValue placeholder="Sélectionner un client" />
-                </SelectTrigger>
-                <SelectContent
-                  style={{ background: "oklch(var(--navy-card))" }}
-                >
-                  {clients.map((c) => (
-                    <SelectItem
-                      key={c.id}
-                      value={c.id}
-                      className="text-foreground"
-                    >
-                      {c.name} — {c.quartier}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Balance preview */}
+          {clientId && currentBalance !== null && (
+            <div className="flex justify-between text-xs px-1">
+              <span className="text-muted-foreground">Solde actuel :</span>
+              <span
+                style={{
+                  color:
+                    currentBalance > 0
+                      ? "oklch(var(--orange))"
+                      : "oklch(var(--emerald))",
+                }}
+              >
+                {formatFCFA(currentBalance)}
+              </span>
             </div>
           )}
 
-          {preselectedClientId && selectedClient && (
-            <div
-              className="rounded-xl px-4 py-3"
-              style={{ background: "oklch(var(--navy-light))" }}
-            >
-              <p className="text-muted-foreground text-xs">Client</p>
-              <p className="text-foreground font-semibold">
-                {selectedClient.name}
-              </p>
+          {/* Type */}
+          <div>
+            <Label className="text-muted-foreground text-sm mb-1.5 block">
+              Type
+            </Label>
+            <div className="flex gap-2">
+              {(["dette", "paiement"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setType(t)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
+                  style={{
+                    background:
+                      type === t
+                        ? t === "dette"
+                          ? "oklch(var(--orange))"
+                          : "oklch(var(--emerald))"
+                        : "oklch(var(--forest-light))",
+                    color:
+                      type === t ? "white" : "oklch(var(--muted-foreground))",
+                  }}
+                  data-ocid={`add_transaction.${t}_toggle`}
+                >
+                  {t === "dette" ? "🔴 Dette" : "🟢 Paiement"}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           {/* Amount */}
           <div>
             <Label className="text-muted-foreground text-sm mb-1.5 block">
-              Montant (FCFA)
+              Montant (FCFA){" "}
+              <span style={{ color: "oklch(var(--orange))" }}>*</span>
             </Label>
             <Input
-              data-ocid="add_transaction.amount_input"
+              data-ocid="add_transaction.input"
               type="number"
               inputMode="numeric"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="0"
-              className="border-border text-foreground text-lg font-bold"
-              style={{ background: "oklch(var(--navy-light))" }}
+              placeholder="Ex: 5000"
+              className="border-border text-foreground"
+              style={{ background: "oklch(var(--forest-light))" }}
             />
+            {newBalance !== null && amountNum > 0 && (
+              <p
+                className="text-xs mt-1"
+                style={{ color: "oklch(var(--muted-foreground))" }}
+              >
+                Nouveau solde : {formatFCFA(newBalance)}
+              </p>
+            )}
           </div>
 
-          {/* Real-time preview */}
-          {currentBalance !== null && amountNum > 0 && (
-            <div
-              className="rounded-xl px-4 py-3"
-              style={{ background: "oklch(var(--navy-light))" }}
-            >
-              <p className="text-muted-foreground text-xs mb-1">Aperçu</p>
-              <p className="text-sm">
-                <span className="text-muted-foreground">Solde actuel: </span>
-                <span
-                  style={{
-                    color:
-                      currentBalance > 0
-                        ? "oklch(var(--orange))"
-                        : "oklch(var(--emerald))",
-                  }}
-                  className="font-bold"
-                >
-                  {formatFCFA(currentBalance)}
-                </span>
-                <span className="text-muted-foreground"> → </span>
-                <span
-                  style={{
-                    color:
-                      (newBalance ?? 0) > 0
-                        ? "oklch(var(--orange))"
-                        : "oklch(var(--emerald))",
-                  }}
-                  className="font-bold"
-                >
-                  {formatFCFA(newBalance ?? 0)}
-                </span>
-              </p>
-            </div>
-          )}
-
-          {/* Product */}
+          {/* Description */}
           <div>
             <Label className="text-muted-foreground text-sm mb-1.5 block">
-              Produit / Description
+              Description / Produit{" "}
+              <span style={{ color: "oklch(var(--orange))" }}>*</span>
             </Label>
             <Input
-              data-ocid="add_transaction.product_input"
+              data-ocid="add_transaction.textarea"
               value={product}
               onChange={(e) => setProduct(e.target.value)}
-              placeholder="Ex: Riz 25kg x2, Remboursement..."
+              placeholder="Ex: Sac de riz 50kg"
               className="border-border text-foreground"
-              style={{ background: "oklch(var(--navy-light))" }}
+              style={{ background: "oklch(var(--forest-light))" }}
             />
           </div>
 
-          {/* Photo proof — only for dette */}
+          {/* Photo proof - required for dette */}
           {type === "dette" && (
             <div>
               <Label className="text-muted-foreground text-sm mb-1.5 block">
-                📷 Preuve Photo
+                Preuve photo{" "}
+                <span style={{ color: "oklch(var(--orange))" }}>
+                  * (obligatoire)
+                </span>
               </Label>
-              {/* Hidden file input */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -321,58 +300,62 @@ export default function AddTransactionModal({
               {!photoBase64 ? (
                 <button
                   type="button"
-                  data-ocid="add_transaction.upload_button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl py-3 font-semibold text-sm transition-all active:scale-95"
+                  className="w-full py-4 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all"
                   style={{
-                    background: "oklch(var(--emerald) / 0.18)",
-                    color: "oklch(var(--emerald))",
-                    border: "2px solid oklch(var(--emerald) / 0.5)",
+                    borderColor: "oklch(var(--emerald) / 0.5)",
+                    background: "oklch(var(--emerald) / 0.05)",
                   }}
+                  data-ocid="add_transaction.upload_button"
                 >
-                  <Camera className="w-4 h-4" />📷 Preuve Photo (recommandé)
+                  <Camera
+                    className="w-6 h-6"
+                    style={{ color: "oklch(var(--emerald))" }}
+                  />
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: "oklch(var(--emerald))" }}
+                  >
+                    Prendre une photo de la marchandise ou du reçu
+                  </span>
                 </button>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="relative">
                   <img
                     src={photoBase64}
                     alt="Preuve"
-                    className="w-16 h-16 rounded-xl object-cover border-2"
-                    style={{ borderColor: "oklch(var(--emerald))" }}
+                    className="w-full h-32 object-cover rounded-xl"
                   />
-                  <div className="flex-1">
-                    <p
-                      className="text-xs font-semibold"
-                      style={{ color: "oklch(var(--emerald))" }}
-                    >
-                      ✓ Photo ajoutée
-                    </p>
+                  <div className="absolute bottom-2 right-2 flex gap-2">
                     <button
                       type="button"
                       onClick={() => setPhotoBase64(undefined)}
-                      className="text-xs mt-1"
-                      style={{ color: "oklch(var(--destructive))" }}
+                      className="text-xs px-3 py-1.5 rounded-lg"
+                      style={{
+                        background: "oklch(var(--orange) / 0.9)",
+                        color: "white",
+                      }}
                     >
-                      Supprimer la photo
+                      Supprimer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs px-3 py-1.5 rounded-lg"
+                      style={{
+                        background: "oklch(var(--forest-light))",
+                        color: "oklch(var(--muted-foreground))",
+                      }}
+                    >
+                      Changer
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-xs px-3 py-1.5 rounded-lg"
-                    style={{
-                      background: "oklch(var(--navy-light))",
-                      color: "oklch(var(--muted-foreground))",
-                    }}
-                  >
-                    Changer
-                  </button>
                 </div>
               )}
             </div>
           )}
 
-          {/* Due date (only for dette) */}
+          {/* Due date */}
           {type === "dette" && (
             <div>
               <Label className="text-muted-foreground text-sm mb-1.5 block">
@@ -384,12 +367,12 @@ export default function AddTransactionModal({
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 className="border-border text-foreground"
-                style={{ background: "oklch(var(--navy-light))" }}
+                style={{ background: "oklch(var(--forest-light))" }}
               />
             </div>
           )}
 
-          {/* Reminder time (only for dette) */}
+          {/* Reminder time */}
           {type === "dette" && (
             <div>
               <Label className="text-muted-foreground text-sm mb-1.5 block">
@@ -401,7 +384,7 @@ export default function AddTransactionModal({
                 value={reminderTime}
                 onChange={(e) => setReminderTime(e.target.value)}
                 className="border-border text-foreground"
-                style={{ background: "oklch(var(--navy-light))" }}
+                style={{ background: "oklch(var(--forest-light))" }}
               />
               {reminderTime && (
                 <p
@@ -418,18 +401,21 @@ export default function AddTransactionModal({
           <Button
             data-ocid="add_transaction.submit_button"
             onClick={handleSubmit}
+            disabled={saving}
             className="w-full rounded-xl py-6 font-bold text-base"
             style={{
               background:
                 type === "dette"
                   ? "oklch(var(--orange))"
                   : "oklch(var(--emerald))",
-              color: type === "dette" ? "white" : "oklch(var(--navy))",
+              color: type === "dette" ? "white" : "oklch(var(--forest))",
             }}
           >
-            {type === "dette"
-              ? "Enregistrer la dette"
-              : "Enregistrer le paiement"}
+            {saving
+              ? "Enregistrement..."
+              : type === "dette"
+                ? "Enregistrer la dette"
+                : "Enregistrer le paiement"}
           </Button>
         </div>
       </SheetContent>

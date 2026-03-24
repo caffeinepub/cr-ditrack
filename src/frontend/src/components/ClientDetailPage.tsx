@@ -29,15 +29,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Role } from "../hooks/useAuth";
-import type { useStore } from "../hooks/useStore";
+import type { BackendStore } from "../hooks/useBackendStore";
 import { formatPhone242 } from "../utils/format";
 import AddTransactionModal from "./AddTransactionModal";
 
-type Store = ReturnType<typeof useStore>;
-
 interface Props {
   clientId: string;
-  store: Store;
+  store: BackendStore;
   role: Role;
   onBack: () => void;
   shopName: string;
@@ -74,6 +72,7 @@ export default function ClientDetailPage({
   );
   const [payNote, setPayNote] = useState("");
   const [fullscreenPhoto, setFullscreenPhoto] = useState<string | null>(null);
+  const [savingPay, setSavingPay] = useState(false);
 
   const client = store.clients.find((c) => c.id === clientId);
   if (!client) {
@@ -109,7 +108,7 @@ export default function ClientDetailPage({
   const buildSmsMessage = () => {
     const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    return `Bonjour ${client.name}, il est ${currentTime}, votre solde impayé est de ${formatFCFA(balance)}. Merci de régulariser avant le ${latestDette ? formatDate(latestDette.dueDate) : "prochainement"}. — CrédiTrack`;
+    return `Bonjour ${client.name}, il est ${currentTime}, votre solde impayé est de ${formatFCFA(balance)}. Merci de régulariser avant le ${latestDette ? formatDate(latestDette.dueDate) : "prochainement"}. — Séqué-App`;
   };
 
   const buildWhatsAppMessage = () => {
@@ -118,9 +117,8 @@ export default function ClientDetailPage({
 
   const sendReminder = () => {
     const msg = buildSmsMessage();
-    const encodedMsg = encodeURIComponent(msg);
     const phone = formatPhone242(client.phone);
-    const smsUrl = `sms:${phone}?body=${encodedMsg}`;
+    const smsUrl = `sms:${phone}?body=${encodeURIComponent(msg)}`;
     const a = document.createElement("a");
     a.href = smsUrl;
     a.target = "_blank";
@@ -132,10 +130,8 @@ export default function ClientDetailPage({
 
   const sendWhatsApp = () => {
     const msg = buildWhatsAppMessage();
-    const encodedMsg = encodeURIComponent(msg);
-    // Use +242 international format, strip + for wa.me URL
     const phone = formatPhone242(client.phone).replace("+", "");
-    const waUrl = `https://wa.me/${phone}?text=${encodedMsg}`;
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
     const a = document.createElement("a");
     a.href = waUrl;
     a.target = "_blank";
@@ -145,29 +141,39 @@ export default function ClientDetailPage({
     toast.success("WhatsApp ouvert !");
   };
 
-  const handleDelete = (txId: string) => {
-    store.deleteTransaction(txId);
-    toast.success("Transaction supprimée");
+  const handleDelete = async (txId: string) => {
+    try {
+      await store.deleteTransaction(txId);
+      toast.success("Transaction supprimée");
+    } catch {
+      toast.error("Erreur lors de la suppression");
+    }
   };
 
-  const handleQuickPayment = () => {
+  const handleQuickPayment = async () => {
     const amt = Number.parseFloat(payAmount);
     if (!amt || amt <= 0) {
       toast.error("Montant invalide");
       return;
     }
-    store.addTransaction({
-      clientId,
-      type: "paiement",
-      amount: amt,
-      product: payNote.trim() || "Paiement enregistré",
-      dueDate: payDate,
-    });
-    toast.success("Paiement enregistré !");
-    setPayAmount("");
-    setPayNote("");
-    setPayDate(new Date().toISOString().split("T")[0]);
-    setShowPaySheet(false);
+    setSavingPay(true);
+    try {
+      await store.addTransaction({
+        clientId,
+        type: "paiement",
+        amount: amt,
+        product: payNote.trim() || "Paiement enregistré",
+        dueDate: payDate,
+      });
+      toast.success("Paiement enregistré !");
+      setPayAmount("");
+      setPayNote("");
+      setPayDate(new Date().toISOString().split("T")[0]);
+      setShowPaySheet(false);
+    } catch {
+      toast.error("Erreur lors de l'enregistrement");
+    }
+    setSavingPay(false);
   };
 
   const tabs: { key: TabType; label: string }[] = [
@@ -230,7 +236,6 @@ export default function ClientDetailPage({
 
         {/* Balance summary: 3 cards */}
         <div className="grid grid-cols-3 gap-2 mb-3">
-          {/* Total dettes */}
           <div
             className="rounded-xl p-3 flex flex-col items-center gap-1"
             style={{ background: "oklch(var(--orange) / 0.12)" }}
@@ -252,8 +257,6 @@ export default function ClientDetailPage({
               {formatFCFA(totalDettes)}
             </p>
           </div>
-
-          {/* Total avances */}
           <div
             className="rounded-xl p-3 flex flex-col items-center gap-1"
             style={{ background: "oklch(var(--emerald) / 0.12)" }}
@@ -275,8 +278,6 @@ export default function ClientDetailPage({
               {formatFCFA(totalAvances)}
             </p>
           </div>
-
-          {/* Reste à payer */}
           <div
             className="rounded-xl p-3 flex flex-col items-center gap-1"
             style={{
@@ -320,7 +321,7 @@ export default function ClientDetailPage({
           </div>
         </div>
 
-        {/* Main balance display */}
+        {/* Main balance */}
         <div
           className="rounded-xl p-4 text-center"
           style={{ background: "oklch(var(--navy-light))" }}
@@ -355,7 +356,6 @@ export default function ClientDetailPage({
               Crédit en avance : {formatFCFA(Math.abs(resteAPayer))}
             </p>
           )}
-          {/* Calcul affiché */}
           {(totalDettes > 0 || totalAvances > 0) && (
             <p className="text-xs text-muted-foreground mt-2">
               {formatFCFA(totalDettes)} − {formatFCFA(totalAvances)} ={" "}
@@ -400,7 +400,6 @@ export default function ClientDetailPage({
             </button>
           </div>
         )}
-        {/* Quick payment button */}
         <button
           type="button"
           data-ocid="client_detail.register_payment_button"
@@ -429,7 +428,7 @@ export default function ClientDetailPage({
         </button>
       </div>
 
-      {/* Transaction history with tabs */}
+      {/* History tabs */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-foreground font-bold text-base">Historique</h2>
         <div
@@ -458,6 +457,7 @@ export default function ClientDetailPage({
                       : "white"
                     : "oklch(var(--muted-foreground))",
               }}
+              data-ocid={`client_detail.${tab.key}_tab`}
             >
               {tab.label}
               {tab.key === "dettes" &&
@@ -554,7 +554,6 @@ export default function ClientDetailPage({
               <p className="text-muted-foreground text-xs mt-0.5">
                 {formatDate(new Date(tx.createdAt).toISOString().split("T")[0])}
               </p>
-              {/* Photo proof thumbnail */}
               {tx.photoBase64 && (
                 <button
                   type="button"
@@ -686,13 +685,14 @@ export default function ClientDetailPage({
             <Button
               data-ocid="client_detail.payment_confirm_button"
               onClick={handleQuickPayment}
+              disabled={savingPay}
               className="w-full rounded-xl py-6 font-bold text-base"
               style={{
                 background: "oklch(var(--emerald))",
                 color: "oklch(var(--navy))",
               }}
             >
-              Confirmer le paiement
+              {savingPay ? "Enregistrement..." : "Confirmer le paiement"}
             </Button>
           </div>
         </SheetContent>

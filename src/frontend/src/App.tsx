@@ -1,6 +1,8 @@
 import { Toaster } from "@/components/ui/sonner";
+import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { useState } from "react";
+import AdminTransactionsPage from "./components/AdminTransactionsPage";
 import BottomNav from "./components/BottomNav";
 import ClientDetailPage from "./components/ClientDetailPage";
 import Dashboard from "./components/Dashboard";
@@ -8,11 +10,13 @@ import LoginPage from "./components/LoginPage";
 import PersonalRemindersPage from "./components/PersonalRemindersPage";
 import SequeControlPage from "./components/SequeControlPage";
 import StatisticsPage from "./components/StatisticsPage";
-import { useAuth } from "./hooks/useAuth";
+import { getStoredStoreId, getStoredStoreName, useAuth } from "./hooks/useAuth";
+import { useBackendStore } from "./hooks/useBackendStore";
+import { useNotificationCenter } from "./hooks/useNotificationCenter";
 import { useReminderScheduler } from "./hooks/useReminderScheduler";
 import { getStoredShopName } from "./hooks/useShopName";
-import { useStore } from "./hooks/useStore";
-import { useSubscription } from "./hooks/useSubscription";
+
+import { sequeApi } from "./sequeApi";
 
 export type Page =
   | { name: "dashboard" }
@@ -20,25 +24,46 @@ export type Page =
   | { name: "statistics" }
   | { name: "rappels" };
 
+type AdminPage = "dashboard" | "transactions";
+
 export default function App() {
   const auth = useAuth();
-  const store = useStore();
-  const subscription = useSubscription();
-  const [page, setPage] = useState<Page>({ name: "dashboard" });
-  const [notifWarningDismissed, setNotifWarningDismissed] = useState(false);
-  const [shopName, setShopName] = useState(getStoredShopName);
+  const storeId = getStoredStoreId();
+  const store = useBackendStore(storeId);
 
-  const { notifPermission, scheduledCount } = useReminderScheduler({
-    clients: store.clients,
-    transactions: store.transactions,
-    personalReminders: store.personalReminders,
-    markReminderFired: store.markReminderFired,
+  const [page, setPage] = useState<Page>({ name: "dashboard" });
+  const [adminPage, setAdminPage] = useState<AdminPage>("dashboard");
+  const [notifWarningDismissed, setNotifWarningDismissed] = useState(false);
+  const [shopName, setShopName] = useState(
+    () => getStoredStoreName() || getStoredShopName(),
+  );
+
+  // Notification center (store-level)
+  const notifCenter = useNotificationCenter(storeId);
+
+  // Load boutiques for admin transactions page
+  const boutiquesQuery = useQuery({
+    queryKey: ["boutiques"],
+    queryFn: () => sequeApi.getBoutiques(),
+    enabled: auth.role === "admin",
+    staleTime: 60_000,
   });
 
+  const { notifPermission, scheduledCount, dueTodayCount } =
+    useReminderScheduler({
+      clients: store.clients,
+      transactions: store.transactions,
+      personalReminders: store.personalReminders,
+      markReminderFired: store.markReminderFired,
+      shopName: shopName || undefined,
+    });
+
   const today = new Date().toISOString().split("T")[0];
-  const todayReminderCount = store.personalReminders.filter(
-    (r) => !r.fired && r.reminderDate === today,
-  ).length;
+  const todayReminderCount = Math.max(
+    store.personalReminders.filter((r) => !r.fired && r.reminderDate === today)
+      .length,
+    dueTodayCount,
+  );
 
   if (!auth.role) {
     return (
@@ -49,11 +74,20 @@ export default function App() {
     );
   }
 
-  // Admin gets a dedicated interface
   if (auth.role === "admin") {
     return (
       <>
-        <SequeControlPage onLogout={auth.logout} />
+        {adminPage === "transactions" ? (
+          <AdminTransactionsPage
+            boutiques={boutiquesQuery.data ?? []}
+            onBack={() => setAdminPage("dashboard")}
+          />
+        ) : (
+          <SequeControlPage
+            onLogout={auth.logout}
+            onOpenTransactions={() => setAdminPage("transactions")}
+          />
+        )}
         <Toaster position="top-center" />
       </>
     );
@@ -61,7 +95,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Notification permission warning */}
+      {/* Notification warning */}
       {notifPermission === "denied" && !notifWarningDismissed && (
         <div
           className="flex items-center justify-between gap-2 px-4 py-2 text-sm"
@@ -86,7 +120,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Active reminders badge */}
       {scheduledCount > 0 && notifPermission === "granted" && (
         <div
           className="flex items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold"
@@ -114,7 +147,11 @@ export default function App() {
               setPage({ name: "client-detail", clientId: id })
             }
             onShopNameChange={setShopName}
-            isPremium={subscription.isPremium}
+            isPremium={auth.isPremium}
+            storeName={shopName || undefined}
+            notifications={notifCenter.notifications}
+            unreadNotifCount={notifCenter.unreadCount}
+            onMarkAllNotifsRead={notifCenter.markAllRead}
           />
         )}
         {page.name === "client-detail" && (

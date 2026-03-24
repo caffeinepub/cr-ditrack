@@ -11,13 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Lock, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { Client } from "../hooks/useStore";
+import type { Client } from "../hooks/useBackendStore";
 import { formatPhone242 } from "../utils/format";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onAdd: (client: Omit<Client, "id" | "createdAt">) => void;
+  onAdd: (client: Omit<Client, "id" | "createdAt">) => Promise<void>;
   initialClientId?: string;
   isPremium?: boolean;
   clientCount?: number;
@@ -34,6 +34,7 @@ export default function AddClientModal({
   const [phoneRaw, setPhoneRaw] = useState("");
   const [localisation, setLocalisation] = useState("");
   const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const atLimit = !isPremium && clientCount >= 10;
 
@@ -44,7 +45,7 @@ export default function AddClientModal({
     setNotes("");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (atLimit) {
       toast.error(
         "Limite de 10 clients atteinte. Passez en Premium pour continuer.",
@@ -60,16 +61,26 @@ export default function AddClientModal({
       return;
     }
     const formattedPhone = formatPhone242(phoneRaw.trim());
-    onAdd({
-      name: name.trim(),
-      phone: formattedPhone,
-      quartier: "",
-      localisation,
-      notes,
-    });
-    toast.success("Client enregistré !");
-    reset();
-    onClose();
+    setSaving(true);
+    try {
+      await onAdd({
+        name: name.trim(),
+        phone: formattedPhone,
+        quartier: "",
+        localisation,
+        notes,
+      });
+      toast.success("Client enregistré !");
+      reset();
+      onClose();
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message === "LIMIT_REACHED") {
+        toast.error("Limite de 10 clients atteinte. Passez en Premium.");
+      } else {
+        toast.error("Erreur lors de l'enregistrement.");
+      }
+    }
+    setSaving(false);
   };
 
   const phonePreview = phoneRaw.trim() ? formatPhone242(phoneRaw.trim()) : "";
@@ -88,7 +99,7 @@ export default function AddClientModal({
         side="bottom"
         className="rounded-t-2xl border-0 px-4 pb-8"
         style={{
-          background: "oklch(var(--navy-card))",
+          background: "oklch(var(--forest-card))",
           maxHeight: "90vh",
           overflowY: "auto",
         }}
@@ -106,7 +117,7 @@ export default function AddClientModal({
                 onClose();
               }}
               className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ background: "oklch(var(--navy-light))" }}
+              style={{ background: "oklch(var(--forest-light))" }}
             >
               <X className="w-4 h-4 text-muted-foreground" />
             </button>
@@ -147,7 +158,7 @@ export default function AddClientModal({
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Kouassi Jean-Baptiste"
               className="border-border text-foreground"
-              style={{ background: "oklch(var(--navy-light))" }}
+              style={{ background: "oklch(var(--forest-light))" }}
               disabled={atLimit}
             />
           </div>
@@ -159,7 +170,7 @@ export default function AddClientModal({
               <span
                 className="text-sm font-bold px-3 py-2 rounded-xl flex-shrink-0"
                 style={{
-                  background: "oklch(var(--navy-light))",
+                  background: "oklch(var(--forest-light))",
                   color: "oklch(var(--emerald))",
                 }}
               >
@@ -173,7 +184,7 @@ export default function AddClientModal({
                 onChange={(e) => setPhoneRaw(e.target.value)}
                 placeholder="065 123 456"
                 className="border-border text-foreground flex-1"
-                style={{ background: "oklch(var(--navy-light))" }}
+                style={{ background: "oklch(var(--forest-light))" }}
                 disabled={atLimit}
               />
             </div>
@@ -196,14 +207,10 @@ export default function AddClientModal({
               onChange={(e) => setLocalisation(e.target.value)}
               placeholder="Ex: Derrière le marché Total, portail bleu"
               className="border-border text-foreground resize-none"
-              style={{ background: "oklch(var(--navy-light))" }}
+              style={{ background: "oklch(var(--forest-light))" }}
               rows={3}
               disabled={atLimit}
             />
-            <p className="text-muted-foreground text-xs mt-1.5">
-              Décrivez à l'aide de repères visibles : mosquée, marché, arbre,
-              école, carrefour...
-            </p>
           </div>
           <div>
             <Label className="text-muted-foreground text-sm mb-1.5 block">
@@ -215,7 +222,7 @@ export default function AddClientModal({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Informations supplémentaires..."
               className="border-border text-foreground resize-none"
-              style={{ background: "oklch(var(--navy-light))" }}
+              style={{ background: "oklch(var(--forest-light))" }}
               rows={3}
               disabled={atLimit}
             />
@@ -223,17 +230,22 @@ export default function AddClientModal({
           <Button
             data-ocid="add_client.submit_button"
             onClick={handleSubmit}
+            disabled={saving || atLimit}
             className="w-full rounded-xl py-6 font-bold text-base"
             style={{
               background: atLimit
-                ? "oklch(var(--navy-light))"
+                ? "oklch(var(--forest-light))"
                 : "oklch(var(--emerald))",
               color: atLimit
                 ? "oklch(var(--muted-foreground))"
-                : "oklch(var(--navy))",
+                : "oklch(var(--forest))",
             }}
           >
-            {atLimit ? "🔒 Limite atteinte" : "Enregistrer le client"}
+            {saving
+              ? "Enregistrement..."
+              : atLimit
+                ? "🔒 Limite atteinte"
+                : "Enregistrer le client"}
           </Button>
         </div>
       </SheetContent>

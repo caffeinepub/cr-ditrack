@@ -12,21 +12,26 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import type { Role } from "../hooks/useAuth";
 import { getStoredPin } from "../hooks/useAuth";
-import type { useStore } from "../hooks/useStore";
+import type { BackendStore } from "../hooks/useBackendStore";
+import type { StoreNotif } from "../sequeApi";
 import AddClientModal from "./AddClientModal";
 import AddTransactionModal from "./AddTransactionModal";
+import NotificationBell from "./NotificationBell";
+import NotificationCenterPanel from "./NotificationCenterPanel";
 import PaywallBanner from "./PaywallBanner";
 import SettingsModal from "./SettingsModal";
 
-type Store = ReturnType<typeof useStore>;
-
 interface Props {
-  store: Store;
+  store: BackendStore;
   role: Role;
   onNavigateToClient: (id: string) => void;
   todayReminderCount?: number;
   onShopNameChange?: (name: string) => void;
   isPremium?: boolean;
+  storeName?: string;
+  notifications?: StoreNotif[];
+  unreadNotifCount?: number;
+  onMarkAllNotifsRead?: () => void;
 }
 
 function formatFCFA(amount: number) {
@@ -40,11 +45,16 @@ export default function Dashboard({
   todayReminderCount = 0,
   onShopNameChange,
   isPremium = true,
+  storeName,
+  notifications = [],
+  unreadNotifCount = 0,
+  onMarkAllNotifsRead,
 }: Props) {
   const [search, setSearch] = useState("");
   const [showAddClient, setShowAddClient] = useState(false);
   const [showAddTx, setShowAddTx] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
 
   const total = store.getTotalReceivable();
   const clientCount = store.clients.length;
@@ -63,19 +73,39 @@ export default function Dashboard({
       {/* Header */}
       <header className="flex items-center justify-between py-5">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">SÉQUÉ-APP</h1>
-          <p className="text-muted-foreground text-xs capitalize">
-            {role === "marchand" ? "Marchand" : "Gérant"}
-          </p>
+          <h1
+            className="text-2xl font-bold tracking-tight"
+            style={{ color: "oklch(var(--gold))" }}
+          >
+            {storeName || "SÉQUÉ-APP"}
+          </h1>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span
+              className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+              style={{ background: "oklch(var(--emerald))" }}
+            />
+            <p className="text-muted-foreground text-xs">
+              {role === "marchand" ? "Marchand" : "Gérant"}{" "}
+              <span style={{ color: "oklch(var(--emerald))" }}>
+                • Session active
+              </span>
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Notification Bell */}
+          <NotificationBell
+            unreadCount={unreadNotifCount}
+            notifications={notifications}
+            onClick={() => setShowNotifPanel(true)}
+          />
           {role === "marchand" && (
             <button
               type="button"
               onClick={() => setShowSettings(true)}
               title="Paramètres"
               className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95"
-              style={{ background: "oklch(var(--navy-card))" }}
+              style={{ background: "oklch(var(--forest-card))" }}
               data-ocid="dashboard.settings_button"
             >
               <Settings className="w-5 h-5 text-muted-foreground" />
@@ -83,23 +113,31 @@ export default function Dashboard({
           )}
           <div
             className="w-10 h-10 rounded-xl bg-card flex items-center justify-center"
-            style={{ background: "oklch(var(--navy-card))" }}
+            style={{ background: "oklch(var(--forest-card))" }}
           >
             <Wallet className="w-5 h-5 text-muted-foreground" />
           </div>
         </div>
       </header>
 
-      {/* Total receivable card */}
+      {/* Total card */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         className="rounded-2xl p-6 mb-3 shadow-card"
-        style={{ background: "oklch(var(--navy-card))" }}
+        style={{
+          background: "oklch(var(--forest-card))",
+          border: "1px solid oklch(var(--gold) / 0.2)",
+        }}
         data-ocid="dashboard.total_card"
       >
         <p className="text-muted-foreground text-sm mb-1">Argent dehors</p>
-        <p className="text-3xl font-bold text-emerald">{formatFCFA(total)}</p>
+        <p
+          className="text-3xl font-bold"
+          style={{ color: "oklch(var(--gold))" }}
+        >
+          {formatFCFA(total)}
+        </p>
         <p className="text-muted-foreground text-xs mt-2">
           {clientCount} client{clientCount !== 1 ? "s" : ""} enregistré
           {clientCount !== 1 ? "s" : ""}
@@ -119,10 +157,9 @@ export default function Dashboard({
         </p>
       </motion.div>
 
-      {/* Paywall banner */}
       <PaywallBanner isPremium={isPremium} clientCount={clientCount} />
 
-      {/* Today's reminders badge */}
+      {/* Reminders badge */}
       {todayReminderCount > 0 && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -144,10 +181,9 @@ export default function Dashboard({
           </span>
         </motion.div>
       )}
-
       {todayReminderCount === 0 && <div className="mb-5" />}
 
-      {/* Search + Add client */}
+      {/* Search + Add */}
       <div className="flex gap-3 mb-5">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -157,7 +193,7 @@ export default function Dashboard({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 bg-card border-border text-foreground placeholder:text-muted-foreground"
-            style={{ background: "oklch(var(--navy-card))" }}
+            style={{ background: "oklch(var(--forest-card))" }}
           />
         </div>
         {role !== "gerant" && (
@@ -165,10 +201,10 @@ export default function Dashboard({
             type="button"
             data-ocid="dashboard.add_client_button"
             onClick={() => setShowAddClient(true)}
-            className="flex items-center gap-2 px-4 rounded-xl font-semibold text-sm text-navy transition-all active:scale-95 flex-shrink-0"
+            className="flex items-center gap-2 px-4 rounded-xl font-semibold text-sm transition-all active:scale-95 flex-shrink-0"
             style={{
               background: "oklch(var(--emerald))",
-              color: "oklch(var(--navy))",
+              color: "oklch(var(--forest))",
             }}
           >
             <Plus className="w-4 h-4" />
@@ -177,79 +213,91 @@ export default function Dashboard({
         )}
       </div>
 
+      {/* Loading state */}
+      {store.isLoading && (
+        <div
+          className="text-center py-8 text-muted-foreground text-sm"
+          data-ocid="dashboard.loading_state"
+        >
+          Chargement des clients...
+        </div>
+      )}
+
       {/* Client list */}
-      <div className="space-y-3" data-ocid="dashboard.list">
-        {filtered.length === 0 && (
-          <div
-            className="text-center py-12 text-muted-foreground"
-            data-ocid="dashboard.empty_state"
-          >
-            {search ? "Aucun client trouvé" : "Aucun client enregistré"}
-          </div>
-        )}
-        {filtered.map((client, i) => {
-          const balance = store.getClientBalance(client.id);
-          return (
-            <motion.div
-              key={client.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              data-ocid={`dashboard.item.${i + 1}`}
+      {!store.isLoading && (
+        <div className="space-y-3" data-ocid="dashboard.list">
+          {filtered.length === 0 && (
+            <div
+              className="text-center py-12 text-muted-foreground"
+              data-ocid="dashboard.empty_state"
             >
-              <button
-                type="button"
-                className="w-full text-left rounded-2xl p-4 shadow-card transition-all active:scale-[0.98] block"
-                style={{ background: "oklch(var(--navy-card))" }}
-                onClick={() => onNavigateToClient(client.id)}
+              {search ? "Aucun client trouvé" : "Aucun client enregistré"}
+            </div>
+          )}
+          {filtered.map((client, i) => {
+            const balance = store.getClientBalance(client.id);
+            return (
+              <motion.div
+                key={client.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                data-ocid={`dashboard.item.${i + 1}`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-foreground text-base truncate">
-                      {client.name}
-                    </p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                      <span className="text-muted-foreground text-xs truncate">
-                        {client.localisation || client.quartier}
-                      </span>
+                <button
+                  type="button"
+                  className="w-full text-left rounded-2xl p-4 shadow-card transition-all active:scale-[0.98] block"
+                  style={{ background: "oklch(var(--forest-card))" }}
+                  onClick={() => onNavigateToClient(client.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-foreground text-base truncate">
+                        {client.name}
+                      </p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground text-xs truncate">
+                          {client.localisation || client.quartier}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 ml-3">
+                      {balance > 0 ? (
+                        <span
+                          className="text-sm font-bold"
+                          style={{ color: "oklch(var(--orange))" }}
+                        >
+                          {formatFCFA(balance)}
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold"
+                          style={{
+                            background: "oklch(var(--emerald))",
+                            color: "oklch(var(--forest))",
+                          }}
+                        >
+                          SOLDÉ
+                        </span>
+                      )}
+                      <a
+                        href={`tel:${client.phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95"
+                        style={{ background: "oklch(var(--forest-light))" }}
+                        data-ocid={`dashboard.phone.${i + 1}`}
+                      >
+                        <Phone className="w-4 h-4 text-muted-foreground" />
+                      </a>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2 ml-3">
-                    {balance > 0 ? (
-                      <span
-                        className="text-sm font-bold"
-                        style={{ color: "oklch(var(--orange))" }}
-                      >
-                        {formatFCFA(balance)}
-                      </span>
-                    ) : (
-                      <span
-                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold"
-                        style={{
-                          background: "oklch(var(--emerald))",
-                          color: "oklch(var(--navy))",
-                        }}
-                      >
-                        SOLDÉ
-                      </span>
-                    )}
-                    <a
-                      href={`tel:${client.phone}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95"
-                      style={{ background: "oklch(var(--navy-light))" }}
-                      data-ocid={`dashboard.phone.${i + 1}`}
-                    >
-                      <Phone className="w-4 h-4 text-muted-foreground" />
-                    </a>
-                  </div>
-                </div>
-              </button>
-            </motion.div>
-          );
-        })}
-      </div>
+                </button>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
 
       {/* FAB */}
       <button
@@ -281,6 +329,15 @@ export default function Dashboard({
         onClose={() => setShowSettings(false)}
         currentPin={getStoredPin()}
         onShopNameChange={onShopNameChange}
+      />
+      <NotificationCenterPanel
+        open={showNotifPanel}
+        onClose={() => setShowNotifPanel(false)}
+        notifications={notifications}
+        onMarkAllRead={() => {
+          onMarkAllNotifsRead?.();
+          setShowNotifPanel(false);
+        }}
       />
     </div>
   );

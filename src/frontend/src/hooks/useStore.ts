@@ -33,11 +33,26 @@ export interface PersonalReminder {
   createdAt: number;
 }
 
-const CLIENTS_KEY = "creditrack_clients";
-const TRANSACTIONS_KEY = "creditrack_transactions";
-const PERSONAL_REMINDERS_KEY = "creditrack_personal_reminders";
+const BASE_CLIENTS_KEY = "creditrack_clients";
+const BASE_TRANSACTIONS_KEY = "creditrack_transactions";
+const BASE_PERSONAL_REMINDERS_KEY = "creditrack_personal_reminders";
 
 const SAMPLE_IDS = ["c1", "c2", "c3"];
+
+function getKeys(storeId: string) {
+  if (!storeId) {
+    return {
+      clientsKey: BASE_CLIENTS_KEY,
+      transactionsKey: BASE_TRANSACTIONS_KEY,
+      remindersKey: BASE_PERSONAL_REMINDERS_KEY,
+    };
+  }
+  return {
+    clientsKey: `creditrack_clients_${storeId}`,
+    transactionsKey: `creditrack_transactions_${storeId}`,
+    remindersKey: `creditrack_personal_reminders_${storeId}`,
+  };
+}
 
 function load<T>(key: string, fallback: T[]): T[] {
   try {
@@ -53,16 +68,17 @@ function save<T>(key: string, data: T[]) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
-function initStore() {
+function initStore(storeId: string) {
+  const { clientsKey, transactionsKey } = getKeys(storeId);
   // Clear sample data if present from previous versions
   try {
-    const rawClients = localStorage.getItem(CLIENTS_KEY);
+    const rawClients = localStorage.getItem(clientsKey);
     if (rawClients) {
       const clients = JSON.parse(rawClients) as Client[];
       const hasSampleData = clients.some((c) => SAMPLE_IDS.includes(c.id));
       if (hasSampleData) {
-        save(CLIENTS_KEY, []);
-        save(TRANSACTIONS_KEY, []);
+        save(clientsKey, []);
+        save(transactionsKey, []);
         return;
       }
     }
@@ -70,61 +86,75 @@ function initStore() {
     // ignore
   }
 
-  if (!localStorage.getItem(CLIENTS_KEY)) {
-    save(CLIENTS_KEY, []);
+  if (!localStorage.getItem(clientsKey)) {
+    save(clientsKey, []);
   }
-  if (!localStorage.getItem(TRANSACTIONS_KEY)) {
-    save(TRANSACTIONS_KEY, []);
+  if (!localStorage.getItem(transactionsKey)) {
+    save(transactionsKey, []);
   }
 }
 
-initStore();
+export function useStore(storeId = "") {
+  const { clientsKey, transactionsKey, remindersKey } = getKeys(storeId);
 
-export function useStore() {
+  // Run init once for this storeId
+  initStore(storeId);
+
   const [clients, setClients] = useState<Client[]>(() =>
-    load<Client>(CLIENTS_KEY, []),
+    load<Client>(clientsKey, []),
   );
   const [transactions, setTransactions] = useState<Transaction[]>(() =>
-    load<Transaction>(TRANSACTIONS_KEY, []),
+    load<Transaction>(transactionsKey, []),
   );
   const [personalReminders, setPersonalReminders] = useState<
     PersonalReminder[]
-  >(() => load<PersonalReminder>(PERSONAL_REMINDERS_KEY, []));
+  >(() => load<PersonalReminder>(remindersKey, []));
 
-  const addClient = useCallback((client: Omit<Client, "id" | "createdAt">) => {
-    const newClient: Client = {
-      ...client,
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-    };
-    setClients((prev) => {
-      const updated = [...prev, newClient];
-      save(CLIENTS_KEY, updated);
-      return updated;
-    });
-    return newClient;
-  }, []);
+  const addClient = useCallback(
+    (client: Omit<Client, "id" | "createdAt">) => {
+      const newClient: Client = {
+        ...client,
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+      };
+      setClients((prev) => {
+        const updated = [...prev, newClient];
+        save(clientsKey, updated);
+        return updated;
+      });
+      return newClient;
+    },
+    [clientsKey],
+  );
 
-  const updateClient = useCallback((id: string, updates: Partial<Client>) => {
-    setClients((prev) => {
-      const updated = prev.map((c) => (c.id === id ? { ...c, ...updates } : c));
-      save(CLIENTS_KEY, updated);
-      return updated;
-    });
-  }, []);
+  const updateClient = useCallback(
+    (id: string, updates: Partial<Client>) => {
+      setClients((prev) => {
+        const updated = prev.map((c) =>
+          c.id === id ? { ...c, ...updates } : c,
+        );
+        save(clientsKey, updated);
+        return updated;
+      });
+    },
+    [clientsKey],
+  );
 
-  const deleteClient = useCallback((id: string) => {
-    setClients((prev) => {
-      const updated = prev.filter((c) => c.id !== id);
-      save(CLIENTS_KEY, updated);
-      return updated;
-    });
-    setTransactions((prev) => {
-      const updated = prev.filter((t) => t.clientId !== id);
-      save(TRANSACTIONS_KEY, updated);
-      return updated;
-    });
-  }, []);
+  const deleteClient = useCallback(
+    (id: string) => {
+      setClients((prev) => {
+        const updated = prev.filter((c) => c.id !== id);
+        save(clientsKey, updated);
+        return updated;
+      });
+      setTransactions((prev) => {
+        const updated = prev.filter((t) => t.clientId !== id);
+        save(transactionsKey, updated);
+        return updated;
+      });
+    },
+    [clientsKey, transactionsKey],
+  );
 
   const addTransaction = useCallback(
     (tx: Omit<Transaction, "id" | "createdAt">) => {
@@ -135,21 +165,24 @@ export function useStore() {
       };
       setTransactions((prev) => {
         const updated = [...prev, newTx];
-        save(TRANSACTIONS_KEY, updated);
+        save(transactionsKey, updated);
         return updated;
       });
       return newTx;
     },
-    [],
+    [transactionsKey],
   );
 
-  const deleteTransaction = useCallback((id: string) => {
-    setTransactions((prev) => {
-      const updated = prev.filter((t) => t.id !== id);
-      save(TRANSACTIONS_KEY, updated);
-      return updated;
-    });
-  }, []);
+  const deleteTransaction = useCallback(
+    (id: string) => {
+      setTransactions((prev) => {
+        const updated = prev.filter((t) => t.id !== id);
+        save(transactionsKey, updated);
+        return updated;
+      });
+    },
+    [transactionsKey],
+  );
 
   const getClientBalance = useCallback(
     (clientId: string) => {
@@ -180,31 +213,37 @@ export function useStore() {
       };
       setPersonalReminders((prev) => {
         const updated = [...prev, newReminder];
-        save(PERSONAL_REMINDERS_KEY, updated);
+        save(remindersKey, updated);
         return updated;
       });
       return newReminder;
     },
-    [],
+    [remindersKey],
   );
 
-  const deletePersonalReminder = useCallback((id: string) => {
-    setPersonalReminders((prev) => {
-      const updated = prev.filter((r) => r.id !== id);
-      save(PERSONAL_REMINDERS_KEY, updated);
-      return updated;
-    });
-  }, []);
+  const deletePersonalReminder = useCallback(
+    (id: string) => {
+      setPersonalReminders((prev) => {
+        const updated = prev.filter((r) => r.id !== id);
+        save(remindersKey, updated);
+        return updated;
+      });
+    },
+    [remindersKey],
+  );
 
-  const markReminderFired = useCallback((id: string) => {
-    setPersonalReminders((prev) => {
-      const updated = prev.map((r) =>
-        r.id === id ? { ...r, fired: true } : r,
-      );
-      save(PERSONAL_REMINDERS_KEY, updated);
-      return updated;
-    });
-  }, []);
+  const markReminderFired = useCallback(
+    (id: string) => {
+      setPersonalReminders((prev) => {
+        const updated = prev.map((r) =>
+          r.id === id ? { ...r, fired: true } : r,
+        );
+        save(remindersKey, updated);
+        return updated;
+      });
+    },
+    [remindersKey],
+  );
 
   return {
     clients,

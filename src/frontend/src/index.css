@@ -13,57 +13,64 @@
   :root {
     --radius: 0.75rem;
 
-    /* App palette — Congo flag inspired */
-    --navy: 0.16 0.058 240;
-    --navy-card: 0.22 0.065 240;
-    --navy-light: 0.3 0.072 240;
+    /* App palette — Emerald & Gold, Congo-Brazzaville */
+    --forest: 0.1 0.04 145;
+    --forest-card: 0.15 0.05 145;
+    --forest-light: 0.22 0.06 145;
     --emerald: 0.57 0.19 145;
     --emerald-dark: 0.5 0.2 145;
+    --gold: 0.78 0.14 85;
+    --gold-dark: 0.68 0.16 85;
     --orange: 0.52 0.23 22;
     --orange-dark: 0.45 0.24 22;
     --yellow: 0.88 0.19 90;
 
-    /* Semantic tokens (dark mode only app) */
-    --background: 0.16 0.058 240;
-    --foreground: 0.95 0.008 240;
+    /* Legacy aliases for existing components */
+    --navy: var(--forest);
+    --navy-card: var(--forest-card);
+    --navy-light: var(--forest-light);
 
-    --card: 0.22 0.065 240;
-    --card-foreground: 0.95 0.008 240;
-    --popover: 0.22 0.065 240;
-    --popover-foreground: 0.95 0.008 240;
+    /* Semantic tokens (dark mode only app) */
+    --background: 0.1 0.04 145;
+    --foreground: 0.95 0.008 145;
+
+    --card: 0.15 0.05 145;
+    --card-foreground: 0.95 0.008 145;
+    --popover: 0.15 0.05 145;
+    --popover-foreground: 0.95 0.008 145;
 
     --primary: 0.57 0.19 145;
     --primary-foreground: 0.985 0 0;
 
-    --secondary: 0.3 0.072 240;
-    --secondary-foreground: 0.95 0.008 240;
+    --secondary: 0.22 0.06 145;
+    --secondary-foreground: 0.95 0.008 145;
 
-    --muted: 0.28 0.06 240;
-    --muted-foreground: 0.62 0.03 240;
+    --muted: 0.2 0.045 145;
+    --muted-foreground: 0.6 0.04 145;
 
-    --accent: 0.57 0.19 145;
-    --accent-foreground: 0.985 0 0;
+    --accent: 0.78 0.14 85;
+    --accent-foreground: 0.1 0.04 145;
 
     --destructive: 0.577 0.245 27.325;
     --destructive-foreground: 0.985 0 0;
 
-    --border: 0.3 0.072 240;
-    --input: 0.3 0.072 240;
+    --border: 0.25 0.06 145;
+    --input: 0.22 0.06 145;
     --ring: 0.57 0.19 145;
 
     --chart-1: 0.57 0.19 145;
     --chart-2: 0.52 0.23 22;
     --chart-3: 0.5 0.2 145;
     --chart-4: 0.45 0.24 22;
-    --chart-5: 0.5 0.12 240;
+    --chart-5: 0.78 0.14 85;
 
-    --sidebar: 0.16 0.058 240;
-    --sidebar-foreground: 0.9 0.01 240;
+    --sidebar: 0.1 0.04 145;
+    --sidebar-foreground: 0.9 0.01 145;
     --sidebar-primary: 0.57 0.19 145;
     --sidebar-primary-foreground: 1 0 0;
-    --sidebar-accent: 0.22 0.065 240;
-    --sidebar-accent-foreground: 0.9 0.01 240;
-    --sidebar-border: 0.22 0.065 240;
+    --sidebar-accent: 0.15 0.05 145;
+    --sidebar-accent-foreground: 0.9 0.01 145;
+    --sidebar-border: 0.15 0.05 145;
     --sidebar-ring: 0.57 0.19 145;
   }
 

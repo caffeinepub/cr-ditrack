@@ -1,12 +1,10 @@
 import { ArrowLeft, TrendingDown, TrendingUp, Users } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo } from "react";
-import type { useStore } from "../hooks/useStore";
-
-type Store = ReturnType<typeof useStore>;
+import type { BackendStore } from "../hooks/useBackendStore";
 
 interface Props {
-  store: Store;
+  store: BackendStore;
   onBack: () => void;
 }
 
@@ -28,40 +26,28 @@ export default function StatisticsPage({ store, onBack }: Props) {
       .filter((x) => x.balance > 0)
       .sort((a, b) => b.balance - a.balance)
       .slice(0, 5);
-  }, [store]);
+  }, [store.clients, store.getClientBalance]);
 
-  const monthlySummary = useMemo(() => {
-    const map: Record<string, { debt: number; payment: number }> = {};
-    for (const tx of store.transactions) {
-      const month = new Date(tx.createdAt).toLocaleDateString("fr-FR", {
-        month: "short",
-        year: "numeric",
-      });
-      if (!map[month]) map[month] = { debt: 0, payment: 0 };
-      if (tx.type === "dette") map[month].debt += tx.amount;
-      else map[month].payment += tx.amount;
-    }
-    return Object.entries(map)
-      .sort(([a], [b]) => {
-        const da = new Date(`1 ${a}`);
-        const db = new Date(`1 ${b}`);
-        return db.getTime() - da.getTime();
-      })
-      .slice(0, 6);
-  }, [store.transactions]);
+  const totalDettes = store.transactions
+    .filter((t) => t.type === "dette")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalPaiements = store.transactions
+    .filter((t) => t.type === "paiement")
+    .reduce((sum, t) => sum + t.amount, 0);
 
   return (
     <div
       className="min-h-screen max-w-[480px] mx-auto px-4 pb-8"
+      style={{ background: "oklch(var(--forest))" }}
       data-ocid="statistics.page"
     >
       <header className="flex items-center gap-3 py-5">
         <button
           type="button"
-          data-ocid="statistics.back_button"
           onClick={onBack}
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: "oklch(var(--navy-card))" }}
+          className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95"
+          style={{ background: "oklch(var(--forest-card))" }}
+          data-ocid="statistics.back_button"
         >
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
@@ -69,175 +55,155 @@ export default function StatisticsPage({ store, onBack }: Props) {
       </header>
 
       <div className="space-y-4">
-        {/* Overview cards */}
+        {/* Summary */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl p-5"
-          style={{ background: "oklch(var(--navy-card))" }}
-          data-ocid="statistics.total_card"
+          style={{ background: "oklch(var(--forest-card))" }}
         >
-          <p className="text-muted-foreground text-sm">Total à percevoir</p>
-          <p
-            className="text-3xl font-bold mt-1"
-            style={{ color: "oklch(var(--emerald))" }}
+          <p className="text-muted-foreground text-sm mb-3">Résumé Global</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div
+              className="rounded-xl p-3"
+              style={{ background: "oklch(var(--orange) / 0.12)" }}
+            >
+              <TrendingUp
+                className="w-4 h-4 mb-1"
+                style={{ color: "oklch(var(--orange))" }}
+              />
+              <p
+                className="text-sm font-bold"
+                style={{ color: "oklch(var(--orange))" }}
+              >
+                {formatFCFA(totalDettes)}
+              </p>
+              <p className="text-muted-foreground text-xs">Total Dettes</p>
+            </div>
+            <div
+              className="rounded-xl p-3"
+              style={{ background: "oklch(var(--emerald) / 0.12)" }}
+            >
+              <TrendingDown
+                className="w-4 h-4 mb-1"
+                style={{ color: "oklch(var(--emerald))" }}
+              />
+              <p
+                className="text-sm font-bold"
+                style={{ color: "oklch(var(--emerald))" }}
+              >
+                {formatFCFA(totalPaiements)}
+              </p>
+              <p className="text-muted-foreground text-xs">Total Paiements</p>
+            </div>
+          </div>
+          <div
+            className="mt-3 rounded-xl p-4 text-center"
+            style={{ background: "oklch(var(--gold) / 0.1)" }}
           >
-            {formatFCFA(total)}
-          </p>
+            <p className="text-muted-foreground text-xs mb-1">Argent Dehors</p>
+            <p
+              className="text-2xl font-bold"
+              style={{ color: "oklch(var(--gold))" }}
+            >
+              {formatFCFA(total)}
+            </p>
+          </div>
         </motion.div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div
-            className="rounded-2xl p-4"
-            style={{ background: "oklch(var(--navy-card))" }}
-          >
-            <Users className="w-5 h-5 text-muted-foreground mb-2" />
-            <p className="text-2xl font-bold text-foreground">
-              {store.clients.length}
-            </p>
-            <p className="text-muted-foreground text-xs">Clients</p>
-          </div>
-          <div
-            className="rounded-2xl p-4"
-            style={{ background: "oklch(var(--navy-card))" }}
-          >
-            <TrendingDown
-              className="w-5 h-5 mb-2"
-              style={{ color: "oklch(var(--orange))" }}
-            />
-            <p
-              className="text-2xl font-bold"
-              style={{ color: "oklch(var(--orange))" }}
-            >
-              {clientsWithDebt}
-            </p>
-            <p className="text-muted-foreground text-xs">En dette</p>
-          </div>
-          <div
-            className="rounded-2xl p-4"
-            style={{ background: "oklch(var(--navy-card))" }}
-          >
-            <TrendingUp
-              className="w-5 h-5 mb-2"
-              style={{ color: "oklch(var(--emerald))" }}
-            />
-            <p
-              className="text-2xl font-bold"
-              style={{ color: "oklch(var(--emerald))" }}
-            >
-              {clientsCleared}
-            </p>
-            <p className="text-muted-foreground text-xs">Soldés</p>
-          </div>
-        </div>
-
-        {/* Top 5 debtors */}
-        <div
+        {/* Clients */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
           className="rounded-2xl p-5"
-          style={{ background: "oklch(var(--navy-card))" }}
-          data-ocid="statistics.top5_card"
+          style={{ background: "oklch(var(--forest-card))" }}
         >
-          <h2 className="text-foreground font-bold mb-3">Top 5 Débiteurs</h2>
-          <div className="space-y-3">
-            {top5.length === 0 && (
-              <p className="text-muted-foreground text-sm">
-                Aucune dette en cours
-              </p>
-            )}
-            {top5.map((item, i) => (
-              <div
-                key={item.client.id}
-                className="flex items-center gap-3"
-                data-ocid={`statistics.top5.item.${i + 1}`}
+          <div className="flex items-center gap-2 mb-3">
+            <Users
+              className="w-4 h-4"
+              style={{ color: "oklch(var(--emerald))" }}
+            />
+            <p className="text-sm font-bold text-foreground">Clients</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div
+              className="rounded-xl p-3 text-center"
+              style={{ background: "oklch(var(--orange) / 0.12)" }}
+            >
+              <p
+                className="text-xl font-bold"
+                style={{ color: "oklch(var(--orange))" }}
               >
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                  style={
-                    i === 0
-                      ? { background: "oklch(var(--orange))", color: "white" }
-                      : {
-                          background: "oklch(var(--navy-light))",
-                          color: "oklch(var(--muted-foreground))",
-                        }
-                  }
-                >
-                  {i + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-foreground text-sm font-semibold truncate">
-                    {item.client.name}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {item.client.quartier}
-                  </p>
-                </div>
-                <span
-                  className="text-sm font-bold"
-                  style={{ color: "oklch(var(--orange))" }}
-                >
-                  {formatFCFA(item.balance)}
-                </span>
-              </div>
-            ))}
+                {clientsWithDebt}
+              </p>
+              <p className="text-muted-foreground text-xs">Avec dette</p>
+            </div>
+            <div
+              className="rounded-xl p-3 text-center"
+              style={{ background: "oklch(var(--emerald) / 0.12)" }}
+            >
+              <p
+                className="text-xl font-bold"
+                style={{ color: "oklch(var(--emerald))" }}
+              >
+                {clientsCleared}
+              </p>
+              <p className="text-muted-foreground text-xs">Soldés</p>
+            </div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Monthly summary */}
-        <div
-          className="rounded-2xl p-5"
-          style={{ background: "oklch(var(--navy-card))" }}
-          data-ocid="statistics.monthly_card"
-        >
-          <h2 className="text-foreground font-bold mb-3">Résumé mensuel</h2>
-          <div className="space-y-3">
-            {monthlySummary.length === 0 && (
-              <p className="text-muted-foreground text-sm">Aucune donnée</p>
-            )}
-            {monthlySummary.map(([month, data]) => (
-              <div key={month}>
-                <p className="text-muted-foreground text-xs mb-1 capitalize">
-                  {month}
-                </p>
-                <div className="flex gap-2">
-                  <div
-                    className="flex-1 rounded-lg px-3 py-2"
-                    style={{ background: "oklch(var(--orange) / 0.15)" }}
-                  >
-                    <p
-                      className="text-xs"
-                      style={{ color: "oklch(var(--orange))" }}
+        {/* Top 5 */}
+        {top5.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="rounded-2xl p-5"
+            style={{ background: "oklch(var(--forest-card))" }}
+          >
+            <p className="text-sm font-bold text-foreground mb-3">
+              Top 5 Clients (solde le plus élevé)
+            </p>
+            <div className="space-y-2">
+              {top5.map(({ client, balance }, i) => (
+                <div
+                  key={client.id}
+                  className="flex items-center justify-between py-2"
+                  data-ocid={`statistics.item.${i + 1}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{
+                        background:
+                          i === 0
+                            ? "oklch(var(--gold))"
+                            : "oklch(var(--forest-light))",
+                        color:
+                          i === 0
+                            ? "oklch(var(--forest))"
+                            : "oklch(var(--muted-foreground))",
+                      }}
                     >
-                      Dettes
-                    </p>
-                    <p
-                      className="text-sm font-bold"
-                      style={{ color: "oklch(var(--orange))" }}
-                    >
-                      {formatFCFA(data.debt)}
-                    </p>
+                      {i + 1}
+                    </span>
+                    <span className="text-foreground text-sm font-semibold">
+                      {client.name}
+                    </span>
                   </div>
-                  <div
-                    className="flex-1 rounded-lg px-3 py-2"
-                    style={{ background: "oklch(var(--emerald) / 0.15)" }}
+                  <span
+                    className="text-sm font-bold"
+                    style={{ color: "oklch(var(--orange))" }}
                   >
-                    <p
-                      className="text-xs"
-                      style={{ color: "oklch(var(--emerald))" }}
-                    >
-                      Paiements
-                    </p>
-                    <p
-                      className="text-sm font-bold"
-                      style={{ color: "oklch(var(--emerald))" }}
-                    >
-                      {formatFCFA(data.payment)}
-                    </p>
-                  </div>
+                    {formatFCFA(balance)}
+                  </span>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
-import { Bell, ChevronLeft, Clock, Trash2, User } from "lucide-react";
+import { Bell, ChevronLeft, Clock, Loader2, Trash2, User } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
-import type { Client, PersonalReminder } from "../hooks/useStore";
+import type { Client, PersonalReminder } from "../hooks/useBackendStore";
 import AddPersonalReminderModal from "./AddPersonalReminderModal";
 
 interface Props {
@@ -10,8 +10,8 @@ interface Props {
   onBack: () => void;
   onAdd: (
     reminder: Omit<PersonalReminder, "id" | "fired" | "createdAt">,
-  ) => void;
-  onDelete: (id: string) => void;
+  ) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }
 
 function formatDate(dateStr: string) {
@@ -27,6 +27,7 @@ export default function PersonalRemindersPage({
   onDelete,
 }: Props) {
   const [showAdd, setShowAdd] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -44,12 +45,23 @@ export default function PersonalRemindersPage({
     return clients.find((c) => c.id === id)?.name ?? null;
   };
 
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await onDelete(id);
+    } catch {
+      // silent
+    }
+    setDeletingId(null);
+  };
+
   const ReminderCard = ({
     reminder,
     index,
   }: { reminder: PersonalReminder; index: number }) => {
     const clientName = getClientName(reminder.clientId);
     const isPast = reminder.reminderDate < today;
+    const isDeleting = deletingId === reminder.id;
 
     return (
       <motion.div
@@ -59,69 +71,68 @@ export default function PersonalRemindersPage({
         data-ocid={`reminders.item.${index + 1}`}
         className="rounded-2xl p-4 shadow-card"
         style={{
-          background: "oklch(var(--navy-card))",
-          borderLeft: `3px solid ${isPast ? "oklch(var(--muted-foreground))" : "oklch(var(--orange))"}`,
-          opacity: reminder.fired ? 0.6 : 1,
+          background: "oklch(var(--forest-card))",
+          opacity: isPast ? 0.6 : 1,
         }}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <Bell
-                className="w-4 h-4 flex-shrink-0"
-                style={{
-                  color: isPast
-                    ? "oklch(var(--muted-foreground))"
-                    : "oklch(var(--orange))",
-                }}
-              />
-              <p className="font-semibold text-foreground text-sm truncate">
-                {reminder.title}
-              </p>
-              {reminder.fired && (
-                <span
-                  className="text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
-                  style={{
-                    background: "oklch(var(--emerald) / 0.15)",
-                    color: "oklch(var(--emerald))",
-                  }}
-                >
-                  Envoyé
+            <p className="font-bold text-foreground text-sm truncate">
+              {reminder.title}
+            </p>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              <div className="flex items-center gap-1">
+                <Bell
+                  className="w-3 h-3"
+                  style={{ color: "oklch(var(--orange))" }}
+                />
+                <span className="text-muted-foreground text-xs">
+                  {formatDate(reminder.reminderDate)}
                 </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock
+                  className="w-3 h-3"
+                  style={{ color: "oklch(var(--emerald))" }}
+                />
+                <span className="text-muted-foreground text-xs">
+                  {reminder.reminderTime}
+                </span>
+              </div>
+              {clientName && (
+                <div className="flex items-center gap-1">
+                  <User className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-muted-foreground text-xs">
+                    {clientName}
+                  </span>
+                </div>
               )}
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock className="w-3 h-3" />
-              <span>
-                {formatDate(reminder.reminderDate)} à {reminder.reminderTime}
-              </span>
-            </div>
-            {clientName && (
-              <div
-                className="flex items-center gap-1.5 text-xs mt-1"
-                style={{ color: "oklch(var(--emerald))" }}
-              >
-                <User className="w-3 h-3" />
-                <span>{clientName}</span>
-              </div>
-            )}
             {reminder.note && (
-              <p className="text-xs text-muted-foreground mt-1 italic">
+              <p className="text-muted-foreground text-xs mt-1.5 line-clamp-2">
                 {reminder.note}
               </p>
             )}
           </div>
           <button
             type="button"
+            onClick={() => handleDelete(reminder.id)}
+            disabled={isDeleting}
+            className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
+            style={{ background: "oklch(var(--orange) / 0.15)" }}
             data-ocid={`reminders.delete_button.${index + 1}`}
-            onClick={() => onDelete(reminder.id)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 flex-shrink-0"
-            style={{ background: "oklch(var(--navy-light))" }}
           >
-            <Trash2
-              className="w-4 h-4"
-              style={{ color: "oklch(var(--orange))" }}
-            />
+            {isDeleting ? (
+              <Loader2
+                className="w-4 h-4 animate-spin"
+                style={{ color: "oklch(var(--orange))" }}
+              />
+            ) : (
+              <Trash2
+                className="w-4 h-4"
+                style={{ color: "oklch(var(--orange))" }}
+              />
+            )}
           </button>
         </div>
       </motion.div>
@@ -130,63 +141,61 @@ export default function PersonalRemindersPage({
 
   return (
     <div
-      className="min-h-screen max-w-[480px] mx-auto px-4 pb-8"
+      className="min-h-screen max-w-[480px] mx-auto px-4 pb-10"
+      style={{ background: "oklch(var(--forest))" }}
       data-ocid="reminders.page"
     >
-      {/* Header */}
       <header className="flex items-center gap-3 py-5">
         <button
           type="button"
-          data-ocid="reminders.back_button"
           onClick={onBack}
-          className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95"
-          style={{ background: "oklch(var(--navy-card))" }}
+          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95"
+          style={{ background: "oklch(var(--forest-card))" }}
+          data-ocid="reminders.close_button"
         >
           <ChevronLeft className="w-5 h-5 text-foreground" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-foreground">
+          <h1 className="text-lg font-bold text-foreground">
             Rappels Personnels
           </h1>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-muted-foreground text-xs">
             {personalReminders.length} rappel
-            {personalReminders.length !== 1 ? "s" : ""} programmé
+            {personalReminders.length !== 1 ? "s" : ""} enregistré
             {personalReminders.length !== 1 ? "s" : ""}
           </p>
         </div>
       </header>
 
-      {/* Empty state */}
+      <button
+        type="button"
+        onClick={() => setShowAdd(true)}
+        className="w-full py-3.5 rounded-xl font-bold text-sm mb-6 transition-all active:scale-95"
+        style={{
+          background: "oklch(var(--emerald))",
+          color: "oklch(var(--forest))",
+        }}
+        data-ocid="reminders.open_modal_button"
+      >
+        + Ajouter un rappel
+      </button>
+
       {personalReminders.length === 0 && (
         <div
-          className="flex flex-col items-center justify-center py-20 text-center"
+          className="text-center py-14 text-muted-foreground"
           data-ocid="reminders.empty_state"
         >
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-            style={{ background: "oklch(var(--navy-card))" }}
-          >
-            <Bell className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <p className="text-muted-foreground font-medium">
-            Aucun rappel programmé
-          </p>
-          <p className="text-muted-foreground text-sm mt-1">
-            Appuyez sur + pour en créer un
-          </p>
+          <Bell className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p>Aucun rappel enregistré</p>
         </div>
       )}
 
-      {/* À venir */}
       {upcoming.length > 0 && (
-        <div className="mb-6">
-          <h2
-            className="text-xs font-bold uppercase tracking-wider mb-3 px-1"
-            style={{ color: "oklch(var(--orange))" }}
-          >
+        <div className="mb-5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             À venir
-          </h2>
-          <div className="space-y-3" data-ocid="reminders.list">
+          </p>
+          <div className="space-y-3">
             {upcoming.map((r, i) => (
               <ReminderCard key={r.id} reminder={r} index={i} />
             ))}
@@ -194,12 +203,11 @@ export default function PersonalRemindersPage({
         </div>
       )}
 
-      {/* Passés */}
       {past.length > 0 && (
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider mb-3 px-1 text-muted-foreground">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             Passés
-          </h2>
+          </p>
           <div className="space-y-3">
             {past.map((r, i) => (
               <ReminderCard
@@ -212,22 +220,14 @@ export default function PersonalRemindersPage({
         </div>
       )}
 
-      {/* FAB */}
-      <button
-        type="button"
-        data-ocid="reminders.open_modal_button"
-        onClick={() => setShowAdd(true)}
-        className="fixed bottom-24 right-4 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white transition-all active:scale-95 z-30 text-2xl font-bold"
-        style={{ background: "oklch(var(--orange))" }}
-      >
-        +
-      </button>
-
       <AddPersonalReminderModal
         open={showAdd}
         onClose={() => setShowAdd(false)}
         clients={clients}
-        onAdd={onAdd}
+        onAdd={async (r) => {
+          await onAdd(r);
+          setShowAdd(false);
+        }}
       />
     </div>
   );
