@@ -53,6 +53,27 @@ export interface Rappel {
   'createdAt': bigint;
 }
 
+export interface StoreNotif {
+  'id': string;
+  'storeId': string;
+  'notifType': string;
+  'message': string;
+  'clientNom': string;
+  'montant': number;
+  'read': boolean;
+  'createdAt': bigint;
+}
+
+export interface AdminNotif {
+  'id': string;
+  'notifType': string;
+  'message': string;
+  'boutiqueId': string;
+  'boutiqueNom': string;
+  'read': boolean;
+  'createdAt': bigint;
+}
+
 export type LoginResult =
   | { 'ok': { 'storeId': string; 'nom': string; 'premium': boolean } }
   | { 'notFound': null }
@@ -101,11 +122,18 @@ export interface _SERVICE {
   'addDette': ActorMethod<[Dette], undefined>;
   'deleteDette': ActorMethod<[string], undefined>;
   'getPaiements': ActorMethod<[string], Array<Paiement>>;
+  'getPaiementsParStore': ActorMethod<[string], Array<Paiement>>;
   'addPaiement': ActorMethod<[Paiement], undefined>;
   'deletePaiement': ActorMethod<[string], undefined>;
   'getRappels': ActorMethod<[string], Array<Rappel>>;
   'addRappel': ActorMethod<[Rappel], undefined>;
   'deleteRappel': ActorMethod<[string], undefined>;
+  'addStoreNotif': ActorMethod<[StoreNotif], undefined>;
+  'getStoreNotifs': ActorMethod<[string], Array<StoreNotif>>;
+  'markStoreNotifsRead': ActorMethod<[string], undefined>;
+  'addAdminNotif': ActorMethod<[AdminNotif], undefined>;
+  'getAdminNotifs': ActorMethod<[], Array<AdminNotif>>;
+  'markAdminNotifsRead': ActorMethod<[], undefined>;
   'loginAdmin': ActorMethod<[string, string], AdminLoginResult>;
   'updateAdminCredentials': ActorMethod<[string, string], undefined>;
   'getAdminEmail': ActorMethod<[], string>;

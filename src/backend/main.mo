@@ -267,6 +267,11 @@ actor {
     paiements.values().toArray().filter(func(p : Paiement) : Bool { p.clientId == clientId });
   };
 
+  // Fetch all payments for a store in one call (fixes N+1 query problem)
+  public query func getPaiementsParStore(storeId : Text) : async [Paiement] {
+    paiements.values().toArray().filter(func(p : Paiement) : Bool { p.storeId == storeId });
+  };
+
   public shared func addPaiement(paiement : Paiement) : async () {
     paiements.add(paiement.id, { paiement with createdAt = Time.now() });
   };

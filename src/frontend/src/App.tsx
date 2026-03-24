@@ -10,6 +10,7 @@ import LoginPage from "./components/LoginPage";
 import PersonalRemindersPage from "./components/PersonalRemindersPage";
 import SequeControlPage from "./components/SequeControlPage";
 import StatisticsPage from "./components/StatisticsPage";
+import { useAppBadge } from "./hooks/useAppBadge";
 import { getStoredStoreId, getStoredStoreName, useAuth } from "./hooks/useAuth";
 import { useBackendStore } from "./hooks/useBackendStore";
 import { useNotificationCenter } from "./hooks/useNotificationCenter";
@@ -41,6 +42,13 @@ export default function App() {
   // Notification center (store-level)
   const notifCenter = useNotificationCenter(storeId);
 
+  // App Badging API — badge numérique sur l'icône PWA
+  const { markClientTreated } = useAppBadge(
+    store.transactions,
+    store.getClientBalance,
+    storeId || "",
+  );
+
   // Load boutiques for admin transactions page
   const boutiquesQuery = useQuery({
     queryKey: ["boutiques"],
@@ -63,6 +71,11 @@ export default function App() {
     store.personalReminders.filter((r) => !r.fired && r.reminderDate === today)
       .length,
     dueTodayCount,
+  );
+
+  // Alerte visuelle si paiement important non lu
+  const hasPaymentAlert = notifCenter.notifications.some(
+    (n) => n.notifType === "payment_alert" && !n.read,
   );
 
   if (!auth.role) {
@@ -161,6 +174,7 @@ export default function App() {
             role={auth.role}
             onBack={() => setPage({ name: "dashboard" })}
             shopName={shopName}
+            onWhatsAppSent={markClientTreated}
           />
         )}
         {page.name === "statistics" && (
@@ -185,6 +199,7 @@ export default function App() {
         onNavigate={(p) => setPage({ name: p } as Page)}
         onLogout={auth.logout}
         todayReminderCount={todayReminderCount}
+        hasPaymentAlert={hasPaymentAlert}
       />
       <Toaster position="top-center" />
     </div>

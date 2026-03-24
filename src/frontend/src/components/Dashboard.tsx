@@ -55,6 +55,7 @@ export default function Dashboard({
   const [showAddTx, setShowAddTx] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   const total = store.getTotalReceivable();
   const clientCount = store.clients.length;
@@ -64,6 +65,9 @@ export default function Dashboard({
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.localisation.toLowerCase().includes(search.toLowerCase()),
   );
+
+  const visibleClients = filtered.slice(0, visibleCount);
+  const remaining = filtered.length - visibleCount;
 
   return (
     <div
@@ -191,7 +195,10 @@ export default function Dashboard({
             data-ocid="dashboard.search_input"
             placeholder="Rechercher un client..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setVisibleCount(20);
+            }}
             className="pl-9 bg-card border-border text-foreground placeholder:text-muted-foreground"
             style={{ background: "oklch(var(--forest-card))" }}
           />
@@ -234,16 +241,10 @@ export default function Dashboard({
               {search ? "Aucun client trouvé" : "Aucun client enregistré"}
             </div>
           )}
-          {filtered.map((client, i) => {
+          {visibleClients.map((client, i) => {
             const balance = store.getClientBalance(client.id);
             return (
-              <motion.div
-                key={client.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                data-ocid={`dashboard.item.${i + 1}`}
-              >
+              <div key={client.id} data-ocid={`dashboard.item.${i + 1}`}>
                 <button
                   type="button"
                   className="w-full text-left rounded-2xl p-4 shadow-card transition-all active:scale-[0.98] block"
@@ -293,9 +294,23 @@ export default function Dashboard({
                     </div>
                   </div>
                 </button>
-              </motion.div>
+              </div>
             );
           })}
+
+          {/* Load more button */}
+          {remaining > 0 && (
+            <button
+              type="button"
+              data-ocid="dashboard.load_more_button"
+              onClick={() => setVisibleCount((prev) => prev + 20)}
+              className="w-full rounded-2xl border border-border py-3 text-sm text-muted-foreground transition-all active:scale-[0.98]"
+              style={{ background: "oklch(var(--forest-card))" }}
+            >
+              Charger plus ({remaining} client{remaining > 1 ? "s" : ""} restant
+              {remaining > 1 ? "s" : ""})
+            </button>
+          )}
         </div>
       )}
 

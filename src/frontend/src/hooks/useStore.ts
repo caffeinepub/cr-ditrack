@@ -69,6 +69,9 @@ function save<T>(key: string, data: T[]) {
 }
 
 function initStore(storeId: string) {
+  // Si storeId ICP présent, pas d'initialisation localStorage pour éviter les conflits
+  if (storeId) return;
+
   const { clientsKey, transactionsKey } = getKeys(storeId);
   // Clear sample data if present from previous versions
   try {

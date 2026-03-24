@@ -39,6 +39,7 @@ interface Props {
   role: Role;
   onBack: () => void;
   shopName: string;
+  onWhatsAppSent?: (clientId: string) => void;
 }
 
 function formatFCFA(amount: number) {
@@ -62,6 +63,7 @@ export default function ClientDetailPage({
   role,
   onBack,
   shopName,
+  onWhatsAppSent,
 }: Props) {
   const [showAddTx, setShowAddTx] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("tout");
@@ -139,6 +141,7 @@ export default function ClientDetailPage({
     a.click();
     document.body.removeChild(a);
     toast.success("WhatsApp ouvert !");
+    onWhatsAppSent?.(clientId);
   };
 
   const handleDelete = async (txId: string) => {

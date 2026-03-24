@@ -27,6 +27,21 @@ function buildWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`;
 }
 
+function safeNotify(
+  title: string,
+  options: NotificationOptions,
+  onClick?: () => void,
+) {
+  if (typeof Notification === "undefined") return;
+  if (Notification.permission !== "granted") return;
+  try {
+    const notif = new Notification(title, options);
+    if (onClick) notif.onclick = onClick;
+  } catch {
+    /* notifications non supportées sur cet appareil */
+  }
+}
+
 export function useReminderScheduler({
   clients,
   transactions,
@@ -71,7 +86,6 @@ export function useReminderScheduler({
       const isMorningCheck = hour === 8 && minute <= 5;
 
       // ========== DEBT DUE DATE REMINDERS ==========
-      // Check dettes where dueDate === today (runs at startup + 8h00-8h05)
       const clientsWithDueDettesToday = new Set<string>();
       for (const tx of transactionsRef.current) {
         if (tx.type !== "dette") continue;
@@ -89,9 +103,7 @@ export function useReminderScheduler({
         const sessionKey = `debt_due_notif_${clientId}_${today}`;
         if (sessionStorage.getItem(sessionKey)) continue;
 
-        // Only fire at startup or during 8h00-8h05 window
         if (!isMorningCheck) {
-          // Check if we already fired at startup (not 8h window)
           const startupKey = `debt_due_startup_${clientId}_${today}`;
           if (sessionStorage.getItem(startupKey)) continue;
           sessionStorage.setItem(startupKey, "1");
@@ -103,19 +115,11 @@ export function useReminderScheduler({
         const waMsg = `Bonjour ${client.name}, votre dette de ${formatFCFA(balance)} arrive à échéance aujourd'hui. Merci de passer régler. — ${shopNameRef.current}`;
         const waUrl = buildWhatsAppUrl(client.phone, waMsg);
 
-        if (
-          typeof Notification !== "undefined" &&
-          Notification.permission === "granted"
-        ) {
-          const notif = new Notification("🔔 Rappel Dette — SÉQUÉ-APP", {
-            body: message,
-            icon: "/favicon.ico",
-            tag: `debt_due_${clientId}`,
-          });
-          notif.onclick = () => {
-            window.open(waUrl, "_blank");
-          };
-        }
+        safeNotify(
+          "🔔 Rappel Dette — SÉQUÉ-APP",
+          { body: message, icon: "/favicon.ico", tag: `debt_due_${clientId}` },
+          () => window.open(waUrl, "_blank"),
+        );
       }
 
       // ========== TIME-BASED TRANSACTION REMINDERS ==========
@@ -142,13 +146,14 @@ export function useReminderScheduler({
           typeof Notification !== "undefined" &&
           Notification.permission === "granted"
         ) {
-          const notif = new Notification("📩 Rappel SÉQUÉ-APP", {
-            body: `${client.name} — ${formatFCFA(balance)} impayé`,
-            icon: "/favicon.ico",
-          });
-          notif.onclick = () => {
-            window.open(waUrl, "_blank");
-          };
+          safeNotify(
+            "📩 Rappel SÉQUÉ-APP",
+            {
+              body: `${client.name} — ${formatFCFA(balance)} impayé`,
+              icon: "/favicon.ico",
+            },
+            () => window.open(waUrl, "_blank"),
+          );
         } else {
           const a = document.createElement("a");
           a.href = smsUrl;
@@ -183,15 +188,7 @@ export function useReminderScheduler({
         if (client) body += ` — Client: ${client.name}`;
         if (reminder.note) body += `\n${reminder.note}`;
 
-        if (
-          typeof Notification !== "undefined" &&
-          Notification.permission === "granted"
-        ) {
-          new Notification("🔔 Rappel Personnel", {
-            body,
-            icon: "/favicon.ico",
-          });
-        }
+        safeNotify("🔔 Rappel Personnel", { body, icon: "/favicon.ico" });
 
         sessionStorage.setItem(sessionKey, "1");
         markReminderFiredRef.current(reminder.id);

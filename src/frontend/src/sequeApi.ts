@@ -5,6 +5,7 @@ import type {
   AddBoutiqueResult,
   AddClientResult,
   AdminLoginResult,
+  AdminNotif,
   Boutique,
   Client,
   Dette,
@@ -12,6 +13,7 @@ import type {
   LoginResult,
   Paiement,
   Rappel,
+  StoreNotif,
   StoreStats,
   TransactionAdmin,
   _SERVICE,
@@ -23,6 +25,8 @@ export type {
   Dette,
   Paiement,
   Rappel,
+  StoreNotif,
+  AdminNotif,
   LoginResult,
   AddClientResult,
   AddBoutiqueResult,
@@ -31,27 +35,6 @@ export type {
   StoreStats,
   TransactionAdmin,
 };
-
-export interface StoreNotif {
-  id: string;
-  storeId: string;
-  notifType: string;
-  message: string;
-  clientNom: string;
-  montant: number;
-  read: boolean;
-  createdAt: bigint;
-}
-
-export interface AdminNotif {
-  id: string;
-  notifType: string;
-  message: string;
-  boutiqueId: string;
-  boutiqueNom: string;
-  read: boolean;
-  createdAt: bigint;
-}
 
 let _actor: _SERVICE | null = null;
 
@@ -137,6 +120,10 @@ export const sequeApi = {
     const actor = await getSequeActor();
     return actor.getPaiements(clientId);
   },
+  async getPaiementsParStore(storeId: string): Promise<Paiement[]> {
+    const actor = await getSequeActor();
+    return actor.getPaiementsParStore(storeId);
+  },
   async addPaiement(paiement: Paiement): Promise<void> {
     const actor = await getSequeActor();
     return actor.addPaiement(paiement);
@@ -163,37 +150,29 @@ export const sequeApi = {
   // Store Notifications
   async addStoreNotif(notif: StoreNotif): Promise<void> {
     const actor = await getSequeActor();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (actor as any).addStoreNotif(notif);
+    return actor.addStoreNotif(notif);
   },
   async getStoreNotifs(storeId: string): Promise<StoreNotif[]> {
     const actor = await getSequeActor();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (actor as any).getStoreNotifs(storeId);
-    return (result as StoreNotif[]) || [];
+    return actor.getStoreNotifs(storeId);
   },
   async markStoreNotifsRead(storeId: string): Promise<void> {
     const actor = await getSequeActor();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (actor as any).markStoreNotifsRead(storeId);
+    return actor.markStoreNotifsRead(storeId);
   },
 
   // Admin Notifications
   async addAdminNotif(notif: AdminNotif): Promise<void> {
     const actor = await getSequeActor();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (actor as any).addAdminNotif(notif);
+    return actor.addAdminNotif(notif);
   },
   async getAdminNotifs(): Promise<AdminNotif[]> {
     const actor = await getSequeActor();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (actor as any).getAdminNotifs();
-    return (result as AdminNotif[]) || [];
+    return actor.getAdminNotifs();
   },
   async markAdminNotifsRead(): Promise<void> {
     const actor = await getSequeActor();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (actor as any).markAdminNotifsRead();
+    return actor.markAdminNotifsRead();
   },
 
   // Admin

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
+import { toast } from "sonner";
 import { sequeApi } from "../sequeApi";
 import type {
   Client as BackendClient,
@@ -88,7 +89,7 @@ function paiementToTransaction(p: Paiement): Transaction {
     clientId: p.clientId,
     type: "paiement",
     amount: p.montant,
-    product: "Paiement enregistr\u00e9",
+    product: "Paiement enregistré",
     dueDate: p.date,
     createdAt: Number(p.createdAt),
   };
@@ -116,25 +117,33 @@ function formatFCFA(amount: number) {
   return `${new Intl.NumberFormat("fr-FR").format(amount)} FCFA`;
 }
 
+function handleMutationError(error: unknown) {
+  const msg =
+    error instanceof Error && error.message === "LIMIT_REACHED"
+      ? "Limite de 10 clients atteinte. Passez en Premium pour continuer."
+      : "Erreur de connexion, réessayez.";
+  toast.error(msg);
+}
+
 export function useBackendStore(storeId: string) {
   const queryClient = useQueryClient();
 
+  // --- KEY FIX: 3 parallel queries instead of N+1 ---
   const storeDataQuery = useQuery({
     queryKey: ["store-data", storeId],
     queryFn: async () => {
       if (!storeId) return { clients: [], dettes: [], paiements: [] };
-      const [backendClients, dettes] = await Promise.all([
+      // Fetch clients, dettes, and ALL paiements for the store in 3 parallel calls
+      const [backendClients, dettes, paiements] = await Promise.all([
         sequeApi.getClients(storeId),
         sequeApi.getDettesParStore(storeId),
+        sequeApi.getPaiementsParStore(storeId),
       ]);
-      const paiementsArrays = await Promise.all(
-        backendClients.map((c) => sequeApi.getPaiements(c.id)),
-      );
-      const paiements = paiementsArrays.flat();
       return { clients: backendClients, dettes, paiements };
     },
     enabled: !!storeId,
     staleTime: 30_000,
+    retry: 2,
   });
 
   const rappelsQuery = useQuery({
@@ -143,6 +152,7 @@ export function useBackendStore(storeId: string) {
       storeId ? sequeApi.getRappels(storeId) : Promise.resolve([]),
     enabled: !!storeId,
     staleTime: 30_000,
+    retry: 2,
   });
 
   const rawClients = storeDataQuery.data?.clients ?? [];
@@ -186,6 +196,7 @@ export function useBackendStore(storeId: string) {
       if ("limitReached" in result) throw new Error("LIMIT_REACHED");
     },
     onSuccess: () => invalidateStore(),
+    onError: handleMutationError,
   });
 
   const updateClientMutation = useMutation({
@@ -204,11 +215,13 @@ export function useBackendStore(storeId: string) {
       await sequeApi.updateClient(merged);
     },
     onSuccess: () => invalidateStore(),
+    onError: handleMutationError,
   });
 
   const deleteClientMutation = useMutation({
     mutationFn: (id: string) => sequeApi.deleteClient(id),
     onSuccess: () => invalidateStore(),
+    onError: handleMutationError,
   });
 
   const addTransactionMutation = useMutation({
@@ -254,17 +267,26 @@ export function useBackendStore(storeId: string) {
             read: false,
             createdAt: BigInt(0),
           };
-          sequeApi.addStoreNotif(notif).catch(console.error);
+          // Wrapped in try-catch so it never crashes the main mutation
+          try {
+            await sequeApi.addStoreNotif(notif);
+          } catch {
+            /* ignore notification errors */
+          }
 
           // Show browser notification immediately
           if (
             typeof Notification !== "undefined" &&
             Notification.permission === "granted"
           ) {
-            new Notification("SÉQUÉ-APP — Paiement reçu", {
-              body: notifMsg,
-              icon: "/favicon.ico",
-            });
+            try {
+              new Notification("SÉQUÉ-APP — Paiement reçu", {
+                body: notifMsg,
+                icon: "/favicon.ico",
+              });
+            } catch {
+              /* notifications non supportées */
+            }
           }
         }
       }
@@ -273,6 +295,7 @@ export function useBackendStore(storeId: string) {
       invalidateStore();
       invalidateNotifs();
     },
+    onError: handleMutationError,
   });
 
   const deleteTransactionMutation = useMutation({
@@ -285,6 +308,7 @@ export function useBackendStore(storeId: string) {
       }
     },
     onSuccess: () => invalidateStore(),
+    onError: handleMutationError,
   });
 
   const addRappelMutation = useMutation({
@@ -303,11 +327,13 @@ export function useBackendStore(storeId: string) {
       await sequeApi.addRappel(rappel);
     },
     onSuccess: () => invalidateRappels(),
+    onError: handleMutationError,
   });
 
   const deleteRappelMutation = useMutation({
     mutationFn: (id: string) => sequeApi.deleteRappel(id),
     onSuccess: () => invalidateRappels(),
+    onError: handleMutationError,
   });
 
   const getClientBalance = useCallback(

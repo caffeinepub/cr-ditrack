@@ -7,6 +7,7 @@ interface Props {
   onNavigate: (page: string) => void;
   onLogout: () => void;
   todayReminderCount?: number;
+  hasPaymentAlert?: boolean;
 }
 
 export default function BottomNav({
@@ -15,6 +16,7 @@ export default function BottomNav({
   onNavigate,
   onLogout,
   todayReminderCount = 0,
+  hasPaymentAlert = false,
 }: Props) {
   // Admin has their own full-page interface with no bottom nav
   if (role === "admin") return null;
@@ -31,15 +33,20 @@ export default function BottomNav({
         onClick={() => onNavigate("dashboard")}
         className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all"
       >
-        <Home
-          className="w-6 h-6"
-          style={{
-            color:
-              currentPage === "dashboard"
-                ? "oklch(var(--emerald))"
-                : "oklch(var(--muted-foreground))",
-          }}
-        />
+        <div className="relative">
+          <Home
+            className="w-6 h-6"
+            style={{
+              color:
+                currentPage === "dashboard"
+                  ? "oklch(var(--emerald))"
+                  : "oklch(var(--muted-foreground))",
+            }}
+          />
+          {hasPaymentAlert && currentPage !== "dashboard" && (
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+          )}
+        </div>
         <span
           className="text-xs font-medium"
           style={{
